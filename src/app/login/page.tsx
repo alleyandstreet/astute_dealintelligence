@@ -47,7 +47,7 @@ export default function LoginPage() {
                 <div className="text-center mb-8">
                     <div className="flex items-center justify-center gap-3 mb-6">
                         <div className="w-8 h-8 rounded-lg overflow-hidden border border-white/10 shadow-lg">
-                            <img src="/logo.jpg" alt="Alley & Street" className="w-full h-full object-cover" />
+                            <img src="/brand-logo.jpg" alt="Alley & Street" className="w-full h-full object-cover" />
                         </div>
                         <span className="text-sm font-semibold text-white/60 tracking-[0.2em] uppercase">Alley & Street</span>
                     </div>

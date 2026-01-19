@@ -240,11 +240,11 @@ export default function DealModal({ deal, isOpen, onClose, onStatusChange, onDel
                         className="fixed inset-4 md:inset-10 lg:inset-20 bg-[var(--card)] border border-[var(--border)] rounded-2xl z-50 overflow-hidden flex flex-col"
                     >
                         {/* Header */}
-                        <div className="flex items-start justify-between p-6 border-b border-[var(--border)]">
+                        <div className="flex flex-col sm:flex-row items-start justify-between p-4 sm:p-6 border-b border-[var(--border)] gap-4">
                             <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-3 mb-2">
+                                <div className="flex flex-wrap items-center gap-2 mb-2">
                                     <span
-                                        className={`px-3 py-1 rounded-lg text-sm font-semibold ${(deal.viabilityScore ?? 0) >= 70
+                                        className={`px-2 py-0.5 rounded text-xs font-semibold ${(deal.viabilityScore ?? 0) >= 70
                                             ? "bg-green-500/20 text-green-400"
                                             : (deal.viabilityScore ?? 0) >= 50
                                                 ? "bg-amber-500/20 text-amber-400"
@@ -254,58 +254,49 @@ export default function DealModal({ deal, isOpen, onClose, onStatusChange, onDel
                                         {deal.viabilityScore ?? "--"}% Viability
                                     </span>
                                     {(deal.motivationScore ?? 0) >= 80 && (
-                                        <span className="px-3 py-1 rounded-lg text-sm font-semibold bg-red-500/20 text-red-400 animate-pulse">
+                                        <span className="px-2 py-0.5 rounded text-xs bg-red-500/20 text-red-400">
                                             🔥 Hot Deal
                                         </span>
                                     )}
                                     {deal.industry && (
-                                        <span className="px-3 py-1 rounded-lg text-sm bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                                        <span className="px-2 py-0.5 rounded text-xs bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
                                             {deal.industry}
                                         </span>
                                     )}
                                 </div>
-                                <h2 className="text-2xl font-bold text-white truncate">{deal.name}</h2>
-                                <p className="text-sm text-[var(--text-muted)] mt-1">Source: <span className="text-cyan-400">{deal.sourceName}</span></p>
+                                <h2 className="text-xl sm:text-2xl font-bold text-white truncate max-w-full">{deal.name}</h2>
+                                <p className="text-xs text-[var(--text-muted)] mt-1">Source: <span className="text-cyan-400">{deal.sourceName}</span></p>
                             </div>
                             <button
                                 onClick={onClose}
-                                className="p-2 rounded-lg hover:bg-[var(--background)] text-[var(--text-muted)] hover:text-white transition-colors"
+                                className="absolute top-4 right-4 sm:static p-2 rounded-lg hover:bg-[var(--background)] text-[var(--text-muted)] hover:text-white transition-colors"
                             >
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
 
                         {/* Tabs */}
-                        <div className="flex gap-1 px-6 pt-4 border-b border-[var(--border)]">
-                            <button
-                                onClick={() => setActiveTab("overview")}
-                                className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${activeTab === "overview"
-                                    ? "bg-[var(--background)] text-white border-t border-x border-[var(--border)]"
-                                    : "text-[var(--text-muted)] hover:text-white"
-                                    }`}
-                            >
-                                Overview
-                            </button>
-                            <button
-                                onClick={() => setActiveTab("notes")}
-                                className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-2 ${activeTab === "notes"
-                                    ? "bg-[var(--background)] text-white border-t border-x border-[var(--border)]"
-                                    : "text-[var(--text-muted)] hover:text-white"
-                                    }`}
-                            >
-                                <StickyNote className="w-4 h-4" />
-                                Notes {notes.length > 0 && `(${notes.length})`}
-                            </button>
-                            <button
-                                onClick={() => setActiveTab("outreach")}
-                                className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-2 ${activeTab === "outreach"
-                                    ? "bg-[var(--background)] text-white border-t border-x border-[var(--border)]"
-                                    : "text-[var(--text-muted)] hover:text-white"
-                                    }`}
-                            >
-                                <MessageSquare className="w-4 h-4" />
-                                Contact Seller
-                            </button>
+                        <div className="flex overflow-x-auto no-scrollbar gap-1 px-4 sm:px-6 pt-4 border-b border-[var(--border)] scroll-smooth bg-[#121214]/50">
+                            {[
+                                { id: "overview", label: "Overview", icon: null },
+                                { id: "notes", label: `Notes ${notes.length > 0 ? `(${notes.length})` : ""}`, icon: StickyNote },
+                                { id: "outreach", label: "Contact", icon: MessageSquare },
+                            ].map((tab) => {
+                                const Icon = tab.icon;
+                                return (
+                                    <button
+                                        key={tab.id}
+                                        onClick={() => setActiveTab(tab.id as any)}
+                                        className={`flex-none px-4 py-2 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-2 whitespace-nowrap ${activeTab === tab.id
+                                            ? "bg-[var(--background)] text-white border-t border-x border-[var(--border)]"
+                                            : "text-[var(--text-muted)] hover:text-white"
+                                            }`}
+                                    >
+                                        {Icon && <Icon className="w-4 h-4" />}
+                                        {tab.label}
+                                    </button>
+                                );
+                            })}
                         </div>
 
                         {/* Content */}

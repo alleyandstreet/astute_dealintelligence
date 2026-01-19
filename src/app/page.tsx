@@ -178,14 +178,16 @@ export default function Dashboard() {
   ];
 
   return (
-    <div className="max-w-7xl mx-auto">
+    <div className="max-w-7xl mx-auto space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">Astute Dashboard</h1>
-          <p className="text-[var(--text-muted)]">Real-time private equity deal intelligence and insights.</p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">Astute Dashboard</h1>
+          <p className="text-sm sm:text-base text-[var(--text-muted)] max-w-xl">
+            Real-time private equity deal intelligence and insights.
+          </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center bg-[var(--card)] border border-[var(--border)] rounded-lg p-1">
             <button
               onClick={handleUndo}
@@ -208,15 +210,15 @@ export default function Dashboard() {
           <button
             onClick={handleTotalReset}
             disabled={isResetting || stats.totalDeals === 0}
-            className="btn-outline flex items-center gap-2 text-red-400 border-red-500/20 hover:bg-red-500/10 h-[42px]"
+            className="btn-outline flex items-center gap-2 text-red-400 border-red-500/20 hover:bg-red-500/10 h-[40px] px-3 text-sm"
           >
             {isResetting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-            Total Reset
+            <span className="hidden xs:inline">Reset</span>
           </button>
 
           <Link
             href="/sources"
-            className="btn-primary flex items-center gap-2"
+            className="btn-primary flex items-center gap-2 h-[40px] px-4 text-sm"
           >
             <Search className="w-4 h-4" />
             New Search

@@ -18,17 +18,7 @@ import {
     Legend,
 } from "recharts";
 
-interface Deal {
-    id: string;
-    industry?: string;
-    viabilityScore?: number;
-    motivationScore?: number;
-    valuationMin?: number;
-    valuationMax?: number;
-    status: string;
-    createdAt: string;
-    sourceName?: string;
-}
+import { Deal } from "@/types";
 
 const COLORS = ["#06b6d4", "#10b981", "#f59e0b", "#8b5cf6", "#ef4444"];
 
@@ -116,11 +106,13 @@ export default function AnalyticsPage() {
     }
 
     return (
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-7xl mx-auto space-y-8">
             {/* Header */}
             <div className="mb-8">
-                <h1 className="text-3xl font-bold text-white mb-2">Analytics</h1>
-                <p className="text-[var(--text-muted)]">Deal intelligence and market insights</p>
+                <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">Analytics</h1>
+                <p className="text-sm sm:text-base text-[var(--text-muted)]">
+                    Market intelligence and aggregate deal performance insights.
+                </p>
             </div>
 
             {/* Stats Cards */}

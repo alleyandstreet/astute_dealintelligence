@@ -6,30 +6,10 @@ import { toast } from "sonner";
 import Link from "next/link";
 import DealModal from "@/components/DealModal";
 
-interface Deal {
-    id: string;
-    name: string;
-    description?: string;
-    industry?: string;
-    revenue?: number;
-    revenueType?: string;
-    valuationMin?: number;
-    valuationMax?: number;
-    viabilityScore?: number;
-    motivationScore?: number;
-    dealQuality?: number;
-    aiSummary?: string;
-    redditAuthor?: string;
-    redditUrl?: string;
-    riskFlags?: string;
-    sellerSignals?: string;
-    status: string;
-    createdAt: string;
-    contactReddit?: string;
-}
+import { Deal } from "@/types";
 
-function formatCurrency(value: number | undefined): string {
-    if (!value) return "N/A";
+function formatCurrency(value: number | null | undefined): string {
+    if (value === null || value === undefined) return "N/A";
     if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
     if (value >= 1000) return `$${(value / 1000).toFixed(0)}K`;
     return `$${value}`;
@@ -176,16 +156,16 @@ export default function DealsPage() {
     }
 
     return (
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-7xl mx-auto space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
                 <div>
-                    <h1 className="text-3xl font-bold text-white mb-2">Browse Deals</h1>
-                    <p className="text-[var(--text-muted)]">
-                        {filteredDeals.length} of {deals.length} deals
+                    <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">Browse Deals</h1>
+                    <p className="text-sm text-[var(--text-muted)]">
+                        Showing {filteredDeals.length} of {deals.length} discovered opportunities
                     </p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
                     <div className="flex items-center bg-[var(--card)] border border-[var(--border)] rounded-lg p-1">
                         <button
                             onClick={handleUndo}
@@ -208,13 +188,13 @@ export default function DealsPage() {
                     <button
                         onClick={handleTotalReset}
                         disabled={isResetting || deals.length === 0}
-                        className="btn-outline flex items-center gap-2 text-red-400 border-red-500/20 hover:bg-red-500/10"
+                        className="btn-outline flex items-center gap-2 text-red-400 border-red-500/20 hover:bg-red-500/10 h-[40px] px-3 text-sm"
                     >
                         {isResetting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                        Total Reset
+                        <span className="hidden xs:inline">Reset</span>
                     </button>
 
-                    <Link href="/sources" className="btn-primary flex items-center gap-2">
+                    <Link href="/sources" className="btn-primary flex items-center gap-2 h-[40px] px-4 text-sm">
                         <Search className="w-4 h-4" />
                         New Search
                     </Link>

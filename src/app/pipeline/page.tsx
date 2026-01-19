@@ -23,28 +23,7 @@ import { Loader2, ExternalLink, TrendingUp, Undo2, Redo2, Trash2 } from "lucide-
 import { toast } from "sonner";
 import DealModal from "@/components/DealModal";
 
-interface Deal {
-    id: string;
-    name: string;
-    description?: string;
-    industry?: string;
-    revenue?: number;
-    revenueType?: string;
-    valuationMin?: number;
-    valuationMax?: number;
-    viabilityScore?: number;
-    motivationScore?: number;
-    dealQuality?: number;
-    aiSummary?: string;
-    redditAuthor?: string;
-    redditUrl?: string;
-    riskFlags?: string;
-    sellerSignals?: string;
-    status: string;
-    createdAt: string;
-    contactReddit?: string;
-    sourceName?: string;
-}
+import { Deal } from "@/types";
 
 const COLUMNS = [
     { id: "new_leads", title: "New Leads", color: "cyan" },
@@ -54,8 +33,8 @@ const COLUMNS = [
     { id: "due_diligence", title: "Due Diligence", color: "green" },
 ];
 
-function formatCurrency(value: number | undefined): string {
-    if (!value) return "N/A";
+function formatCurrency(value: number | null | undefined): string {
+    if (value === null || value === undefined) return "N/A";
     if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
     if (value >= 1000) return `$${(value / 1000).toFixed(0)}K`;
     return `$${value}`;
@@ -347,16 +326,16 @@ export default function PipelinePage() {
     }
 
     return (
-        <div>
+        <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
                 <div>
-                    <h1 className="text-3xl font-bold text-white mb-2">Pipeline</h1>
-                    <p className="text-[var(--text-muted)]">
-                        Drag and drop deals to manage your pipeline
+                    <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">Pipeline</h1>
+                    <p className="text-sm text-[var(--text-muted)]">
+                        Drag and drop deals to manage stage progression
                     </p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
                     <div className="flex items-center bg-[var(--card)] border border-[var(--border)] rounded-lg p-1">
                         <button
                             onClick={handleUndo}
@@ -379,15 +358,15 @@ export default function PipelinePage() {
                     <button
                         onClick={handleTotalReset}
                         disabled={isResetting || deals.length === 0}
-                        className="btn-outline flex items-center gap-2 text-red-400 border-red-500/20 hover:bg-red-500/10"
+                        className="btn-outline flex items-center gap-2 text-red-400 border-red-500/20 hover:bg-red-500/10 h-[40px] px-3 text-sm"
                     >
                         {isResetting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                        Total Reset
+                        <span className="hidden xs:inline">Reset</span>
                     </button>
 
-                    <div className="flex items-center gap-2 text-[var(--text-muted)] ml-4">
+                    <div className="flex items-center gap-2 text-[var(--text-muted)] bg-[var(--card)] border border-[var(--border)] px-3 py-2 rounded-lg text-sm">
                         <TrendingUp className="w-4 h-4" />
-                        <span>{deals.length} total deals</span>
+                        <span className="whitespace-nowrap">{deals.length} deals</span>
                     </div>
                 </div>
             </div>
