@@ -82,6 +82,9 @@ export async function POST(request: NextRequest) {
                 let dealsCreated = 0;
                 let matchCount = 0;
 
+                // Import Gemini analysis (Dynamic import to avoid issues if needed)
+                const { analyzePost } = await import("@/lib/gemini");
+
                 for (const post of allPosts) {
                     try {
                         if (!isRelevantPost(post.title, post.content, keywords)) continue;
@@ -98,14 +101,51 @@ export async function POST(request: NextRequest) {
                             continue;
                         }
 
-                        // Score the post with error handling
+                        send({ type: "log", message: `🤖 AI analyzing: "${post.title.slice(0, 40)}..."` });
+
+                        // Try AI analysis first
                         let scores;
-                        try {
-                            scores = scorePost(post.title || "", post.content || "", post.subreddit || "");
-                        } catch (scoreError) {
-                            send({ type: "log", message: `❌ Scoring error for "${post.title}": ${scoreError}` });
-                            console.error("Scoring error details:", scoreError, { title: post.title, content: post.content?.substring(0, 100) });
-                            continue;
+                        let aiResult = null;
+
+                        if (process.env.GEMINI_API_KEY) {
+                            try {
+                                aiResult = await analyzePost(
+                                    post.title,
+                                    post.content,
+                                    post.subreddit,
+                                    post.author
+                                );
+                            } catch (aiErr) {
+                                console.error("Gemini analysis failed, falling back to keywords:", aiErr);
+                            }
+                        }
+
+                        if (aiResult) {
+                            // Map AI result to our DB structure
+                            scores = {
+                                viabilityScore: aiResult.viability_score,
+                                motivationScore: aiResult.motivation_score,
+                                dealQuality: aiResult.deal_quality,
+                                industry: aiResult.industry,
+                                riskFlags: aiResult.risk_flags,
+                                sellerSignals: aiResult.seller_signals,
+                                aiSummary: aiResult.ai_summary,
+                                businessType: aiResult.business_type,
+                                revenueValue: aiResult.valuation_range?.min ? Math.round(aiResult.valuation_range.min / 3) : 0, // Heuristic if revenue missing
+                                revenueDisplay: aiResult.estimated_revenue,
+                                revenueType: aiResult.revenue_type,
+                                valuationMin: aiResult.valuation_range?.min || null,
+                                valuationMax: aiResult.valuation_range?.max || null,
+                            };
+                        } else {
+                            // Fallback to local keyword algorithm
+                            const localScores = scorePost(post.title || "", post.content || "", post.subreddit || "");
+                            scores = {
+                                ...localScores,
+                                revenueDisplay: localScores.estimatedRevenue,
+                                revenueType: localScores.estimatedRevenue.includes("MRR") ? "MRR" :
+                                    localScores.estimatedRevenue.includes("ARR") ? "ARR" : null,
+                            };
                         }
 
                         // Create deal
@@ -131,10 +171,9 @@ export async function POST(request: NextRequest) {
                                     sellerSignals: JSON.stringify(scores.sellerSignals),
                                     businessType: scores.businessType,
                                     revenue: scores.revenueValue || null,
-                                    revenueType: scores.estimatedRevenue.includes("MRR") ? "MRR" :
-                                        scores.estimatedRevenue.includes("ARR") ? "ARR" : null,
-                                    valuationMin: scores.valuationMin || null,
-                                    valuationMax: scores.valuationMax || null,
+                                    revenueType: scores.revenueType,
+                                    valuationMin: scores.valuationMin,
+                                    valuationMax: scores.valuationMax,
                                     contactReddit: `u/${post.author}`,
                                 },
                             });

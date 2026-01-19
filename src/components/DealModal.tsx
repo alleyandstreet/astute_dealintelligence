@@ -20,6 +20,7 @@ import {
     Send,
     Trash2,
     Loader2,
+    RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
 import TagManager from "./TagManager";
@@ -87,6 +88,8 @@ export default function DealModal({ deal, isOpen, onClose, onStatusChange, onDel
     const [isDeletingDeal, setIsDeletingDeal] = useState(false);
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
     const [dealTags, setDealTags] = useState<any[]>([]);
+    const [aiOutreachMessage, setAiOutreachMessage] = useState<string>("");
+    const [isGeneratingOutreach, setIsGeneratingOutreach] = useState(false);
 
     useEffect(() => {
         if (deal && isOpen) {
@@ -156,14 +159,47 @@ export default function DealModal({ deal, isOpen, onClose, onStatusChange, onDel
         }
     };
 
+    const fetchAiOutreach = async () => {
+        if (!deal) return;
+        setIsGeneratingOutreach(true);
+        try {
+            const res = await fetch("/api/ai/outreach", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    dealName: deal.name,
+                    industry: deal.industry,
+                    revenue: formatCurrency(deal.revenue),
+                    username: deal.redditAuthor,
+                    aiSummary: deal.aiSummary
+                }),
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setAiOutreachMessage(data.message);
+            }
+        } catch (error) {
+            console.error("Failed to generate AI outreach:", error);
+        } finally {
+            setIsGeneratingOutreach(false);
+        }
+    };
+
+    useEffect(() => {
+        if (isOpen && deal && activeTab === "outreach" && !aiOutreachMessage) {
+            fetchAiOutreach();
+        }
+    }, [isOpen, activeTab, deal?.id]);
+
     if (!deal) return null;
 
     const riskFlags: string[] = deal.riskFlags ? JSON.parse(deal.riskFlags) : [];
     const sellerSignals: string[] = deal.sellerSignals ? JSON.parse(deal.sellerSignals) : [];
-    const outreachMessage = generateOutreachMessage(deal);
+    const defaultOutreach = generateOutreachMessage(deal);
+    const displayedMessage = aiOutreachMessage || defaultOutreach;
 
     const copyMessage = async () => {
-        await navigator.clipboard.writeText(outreachMessage);
+        await navigator.clipboard.writeText(displayedMessage);
         setCopied(true);
         toast.success("Message copied to clipboard!");
         setTimeout(() => setCopied(false), 2000);
@@ -584,18 +620,33 @@ export default function DealModal({ deal, isOpen, onClose, onStatusChange, onDel
                                 /* Outreach Tab */
                                 <div className="max-w-3xl mx-auto">
                                     <div className="bg-gradient-to-br from-cyan-500/5 to-purple-500/5 border border-cyan-500/20 rounded-xl p-6 mb-6">
-                                        <div className="flex items-center gap-2 mb-4">
-                                            <Sparkles className="w-5 h-5 text-cyan-400" />
-                                            <h3 className="font-semibold text-white">Personalized Outreach Message</h3>
+                                        <div className="flex items-center justify-between mb-4">
+                                            <div className="flex items-center gap-2">
+                                                <Sparkles className="w-5 h-5 text-cyan-400" />
+                                                <h3 className="font-semibold text-white">AI outreach Message</h3>
+                                            </div>
+                                            <button
+                                                onClick={fetchAiOutreach}
+                                                disabled={isGeneratingOutreach}
+                                                className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 disabled:opacity-50"
+                                            >
+                                                {isGeneratingOutreach ? <Loader2 className="w-3 h-3 animate-spin" /> : <RotateCcw className="w-3 h-3" />}
+                                                Regenerate
+                                            </button>
                                         </div>
-                                        <p className="text-[var(--text-muted)] text-sm mb-4">
-                                            This message is tailored based on the deal details. Copy and send via Reddit DM.
+                                        <p className="text-[var(--text-muted)] text-sm mb-0">
+                                            Crafted by Gemini AI based on context. Copy and send via Reddit DM.
                                         </p>
                                     </div>
 
                                     <div className="relative">
-                                        <div className="bg-[var(--background)] rounded-xl p-6 font-mono text-sm text-[var(--text)] leading-relaxed whitespace-pre-wrap">
-                                            {outreachMessage}
+                                        {isGeneratingOutreach && (
+                                            <div className="absolute inset-0 bg-[var(--background)]/50 backdrop-blur-sm z-10 flex items-center justify-center rounded-xl">
+                                                <Loader2 className="w-8 h-8 animate-spin text-cyan-400" />
+                                            </div>
+                                        )}
+                                        <div className="bg-[var(--background)] rounded-xl p-6 font-mono text-sm text-[var(--text)] leading-relaxed whitespace-pre-wrap min-h-[200px]">
+                                            {displayedMessage}
                                         </div>
                                         <button
                                             onClick={copyMessage}
