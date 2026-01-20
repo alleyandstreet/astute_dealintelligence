@@ -27,62 +27,53 @@ export async function POST(request: NextRequest) {
                 send({ type: "log", message: `Scanning ${subreddits.length} subreddits` });
                 send({ type: "log", message: `Keywords: ${keywords.join(", ")}` });
 
-                // Scrape Reddit
+                // Scrape Reddit using RSS (more permissive)
+                const Parser = (await import("rss-parser")).default;
+                const parser = new Parser({
+                    headers: {
+                        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+                        "Accept": "application/rss+xml, application/xml, text/xml, */*",
+                    },
+                });
+
                 const allPosts: RedditPost[] = [];
                 for (const subreddit of subreddits) {
-                    send({ type: "log", message: `📡 Fetching r/${subreddit}...` });
+                    send({ type: "log", message: `📡 Fetching r/${subreddit} (RSS)...` });
 
                     try {
-                        const res = await fetch(
-                            `https://www.reddit.com/r/${subreddit}/new.json?limit=50`,
-                            {
-                                headers: {
-                                    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-                                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-                                    "Accept-Language": "en-US,en;q=0.9",
-                                    "Cache-Control": "max-age=0",
-                                    "Sec-Ch-Ua": '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"',
-                                    "Sec-Ch-Ua-Mobile": "?0",
-                                    "Sec-Ch-Ua-Platform": '"macOS"',
-                                    "Sec-Fetch-Dest": "document",
-                                    "Sec-Fetch-Mode": "navigate",
-                                    "Sec-Fetch-Site": "none",
-                                    "Sec-Fetch-User": "?1",
-                                    "Upgrade-Insecure-Requests": "1"
-                                },
-                            }
-                        );
+                        const feed = await parser.parseURL(`https://www.reddit.com/r/${subreddit}/new.rss`);
 
-                        if (!res.ok) {
-                            send({ type: "log", message: `⚠️ Failed to fetch r/${subreddit}: ${res.status}` });
-                            continue;
-                        }
+                        feed.items.forEach(item => {
+                            // Clean up the content (Reddit RSS puts HTML in summary)
+                            const rawContent = item.contentSnippet || item.content || "";
+                            // Basic HTML tag stripping
+                            const cleanContent = rawContent
+                                .replace(/<[^>]*>?/gm, " ")
+                                .replace(/&nbsp;/g, " ")
+                                .replace(/\s+/g, " ")
+                                .trim();
 
-                        const data = await res.json();
-                        const posts = data.data?.children || [];
-
-                        for (const post of posts) {
-                            if (!post.data.is_self) continue;
                             allPosts.push({
-                                id: post.data.id,
-                                title: post.data.title || "",
-                                content: post.data.selftext || "",
-                                author: post.data.author,
-                                subreddit: post.data.subreddit,
-                                url: `https://reddit.com${post.data.permalink}`,
-                                score: post.data.score,
-                                numComments: post.data.num_comments,
-                                createdAt: new Date(post.data.created_utc * 1000),
-                                permalink: post.data.permalink,
+                                id: item.id || item.link || Math.random().toString(),
+                                title: item.title || "",
+                                content: cleanContent,
+                                author: item.creator || item.author || "anonymous",
+                                subreddit: subreddit,
+                                url: item.link || "",
+                                score: 0, // RSS doesn't give score easily
+                                numComments: 0, // RSS doesn't give comments easily
+                                createdAt: item.isoDate ? new Date(item.isoDate) : new Date(),
+                                permalink: item.link?.replace("https://www.reddit.com", "") || "",
                             });
-                        }
+                        });
 
-                        send({ type: "log", message: `✅ Got ${posts.filter((p: any) => p.data.is_self).length} posts from r/${subreddit}` });
+                        send({ type: "log", message: `✅ Got ${feed.items.length} posts from r/${subreddit}` });
 
-                        // Rate limiting
-                        await new Promise(r => setTimeout(r, 1500));
+                        // Rate limiting to be polite
+                        await new Promise(r => setTimeout(r, 2000));
                     } catch (error) {
-                        send({ type: "log", message: `❌ Error with r/${subreddit}: ${error}` });
+                        send({ type: "log", message: `⚠️ Failed to fetch r/${subreddit}: ${error}` });
+                        console.error(`Error fetching r/${subreddit}:`, error);
                     }
                 }
 
