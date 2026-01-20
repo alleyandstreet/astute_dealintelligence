@@ -37,8 +37,10 @@ export async function POST(request: NextRequest) {
                             `https://www.reddit.com/r/${subreddit}/new.json?limit=50`,
                             {
                                 headers: {
-                                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                                    "User-Agent": `web:astute-deal-intel:v1.0.0 (by /u/kabeerjain)`,
                                     "Accept": "application/json",
+                                    "Referer": "https://www.reddit.com/",
+                                    "Cache-Control": "no-cache",
                                 },
                             }
                         );
