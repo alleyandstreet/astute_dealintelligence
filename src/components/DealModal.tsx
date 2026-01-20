@@ -265,7 +265,7 @@ export default function DealModal({ deal, isOpen, onClose, onStatusChange, onDel
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         onClick={onClose}
-                        className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50"
+                        className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[100]"
                     />
 
                     {/* Modal */}
@@ -273,7 +273,7 @@ export default function DealModal({ deal, isOpen, onClose, onStatusChange, onDel
                         initial={{ opacity: 0, scale: 0.95, y: 20 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                        className="fixed inset-4 md:inset-10 lg:inset-20 bg-[var(--card)] border border-[var(--border)] rounded-2xl z-50 overflow-hidden flex flex-col"
+                        className="fixed inset-4 md:inset-10 lg:inset-20 bg-[var(--card)] border border-[var(--border)] rounded-2xl z-[100] overflow-hidden flex flex-col"
                     >
                         {/* Header */}
                         <div className="flex flex-col sm:flex-row items-start justify-between p-4 sm:p-6 border-b border-[var(--border)] gap-4">
