@@ -37,9 +37,15 @@ export default function LoginPage() {
                 toast.error("Invalid credentials. Access denied.");
                 setLoading(false);
             } else {
-                toast.success("Welcome back, Team!");
-                router.push("/");
-                router.refresh();
+                // Trigger the exit/entrance animation
+                setIsAnimating(true);
+
+                // Wait for animation to complete before redirecting
+                setTimeout(() => {
+                    toast.success("Welcome back, Team!");
+                    router.push("/");
+                    router.refresh();
+                }, 4000);
             }
         } catch (error) {
             toast.error("An error occurred during sign in.");
@@ -112,26 +118,19 @@ export default function LoginPage() {
                         initial={{ scale: 0.8, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
                         transition={{ delay: 0.2, duration: 0.5 }}
-                        className="flex items-center justify-center gap-3 mb-8"
+                        className="flex flex-col items-center justify-center gap-4 mb-10"
                     >
                         <div className="relative group cursor-default">
-                            <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500 to-indigo-500 rounded-xl blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200"></div>
-                            <div className="w-12 h-12 relative rounded-xl bg-gradient-to-br from-[#09090b] to-[#121214] border border-white/10 shadow-2xl flex items-center justify-center">
-                                <AstuteLogo className="w-8 h-8 text-white" />
+                            <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500 to-indigo-500 rounded-2xl blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200"></div>
+                            <div className="w-16 h-16 relative rounded-2xl bg-gradient-to-br from-[#09090b] to-[#121214] border border-white/10 shadow-2xl flex items-center justify-center">
+                                <AstuteLogo className="w-10 h-10 text-white" />
                             </div>
                         </div>
-                        <div className="flex flex-col items-start">
-                            <span className="text-2xl font-bold text-white tracking-tight leading-none">Astute</span>
-                            <span className="text-[10px] font-medium text-white/40 tracking-[0.2em] uppercase leading-none mt-1">Intelligence</span>
+                        <div className="flex flex-col items-center">
+                            <span className="text-3xl font-bold text-white tracking-tight leading-none">Astute</span>
+                            <span className="text-xs font-medium text-white/40 tracking-[0.3em] uppercase leading-none mt-1.5">Intelligence</span>
                         </div>
                     </motion.div>
-
-                    <div className="relative inline-flex items-center justify-center w-20 h-20 mb-6">
-                        <div className="absolute inset-0 bg-cyan-500/20 blur-xl rounded-full animate-pulse" />
-                        <div className="relative w-full h-full rounded-2xl bg-gradient-to-br from-[#1a1a1c] to-[#09090b] border border-cyan-500/20 flex items-center justify-center shadow-2xl shadow-cyan-900/20">
-                            <AstuteLogo className="w-8 h-8 text-cyan-400" />
-                        </div>
-                    </div>
 
                     <h1 className="text-4xl font-bold text-white mb-3 tracking-tight drop-shadow-lg">
                         Welcome Back
