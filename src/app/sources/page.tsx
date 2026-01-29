@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, Suspense } from "react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
+import { useSearchParams } from "next/navigation";
 import {
     Search,
     Play,
@@ -53,15 +54,61 @@ const SUBREDDIT_PACKS = {
     },
 };
 
-const SEARCH_STAGES = [
-    { icon: Globe, label: "Connecting to Reddit", color: "cyan" },
-    { icon: MessageSquare, label: "Fetching Posts", color: "blue" },
-    { icon: Search, label: "Analyzing Content", color: "purple" },
-    { icon: TrendingUp, label: "Scoring Viability", color: "green" },
-    { icon: Target, label: "Finding Matches", color: "amber" },
-    { icon: DollarSign, label: "Estimating Valuations", color: "emerald" },
-    { icon: Zap, label: "Saving Deals", color: "orange" },
-];
+const TOPIC_PACKS = {
+    saas: {
+        name: "SaaS Topics",
+        items: ["saas", "developer-tools", "productivity", "marketing"],
+        keywords: ["MRR", "ARR", "revenue", "scale"],
+        color: "cyan",
+    },
+    ai: {
+        name: "AI & Data",
+        items: ["artificial-intelligence", "data-analytics", "machine-learning"],
+        keywords: ["AI", "generative results", "automation"],
+        color: "amber",
+    },
+    growth: {
+        name: "Growth & Sales",
+        items: ["sales", "growth-hacking", "marketing"],
+        keywords: ["growth", "sales", "leads"],
+        color: "green",
+    },
+};
+
+const INDIEHUSTLE_PACKS = {
+    startups: {
+        name: "Startup Deals",
+        items: ["saas", "marketplace", "tools"],
+        keywords: ["revenue", "selling", "exit", "acquisition"],
+        color: "purple",
+    },
+    content: {
+        name: "Content Businesses",
+        items: ["newsletter", "content", "media"],
+        keywords: ["subscribers", "revenue", "monetization"],
+        color: "pink",
+    },
+    services: {
+        name: "Service Businesses",
+        items: ["agency", "consulting", "services"],
+        keywords: ["clients", "revenue", "selling"],
+        color: "indigo",
+    },
+};
+
+const getSearchStages = (platform: "reddit" | "producthunt" | "indiehustle") => {
+    const platformName = platform === "reddit" ? "Reddit" : platform === "producthunt" ? "ProductHunt" : "IndieHustle";
+    const fetchLabel = platform === "reddit" ? "Fetching Posts" : platform === "producthunt" ? "Fetching Products" : "Fetching Articles";
+    return [
+        { icon: Globe, label: `Connecting to ${platformName}`, color: "cyan" },
+        { icon: MessageSquare, label: fetchLabel, color: "blue" },
+        { icon: Search, label: "Analyzing Content", color: "purple" },
+        { icon: TrendingUp, label: "Scoring Viability", color: "green" },
+        { icon: Target, label: "Finding Matches", color: "amber" },
+        { icon: DollarSign, label: "Estimating Valuations", color: "emerald" },
+        { icon: Zap, label: "Saving Deals", color: "orange" },
+    ];
+};
 
 interface SearchSlide {
     id: string;
@@ -71,11 +118,22 @@ interface SearchSlide {
     color: string;
 }
 
-export default function SourcesPage() {
+function SourcesContent() {
+    const searchParams = useSearchParams();
+    const sourceParam = searchParams.get("source");
+    const initialPlatform = sourceParam === "producthunt" ? "producthunt" : sourceParam === "indiehustle" ? "indiehustle" : "reddit";
+
     const [subreddits, setSubreddits] = useState<string[]>([]);
     const [keywords, setKeywords] = useState<string[]>([]);
     const [newSubreddit, setNewSubreddit] = useState("");
     const [newKeyword, setNewKeyword] = useState("");
+    const [platform, setPlatform] = useState<"reddit" | "producthunt" | "indiehustle">(initialPlatform);
+    const [minRevenue, setMinRevenue] = useState("");
+
+    useEffect(() => {
+        setPlatform(initialPlatform);
+    }, [initialPlatform]);
+
     const [isScanning, setIsScanning] = useState(false);
     const [logs, setLogs] = useState<{ id: string; message: string; type: string }[]>([]);
     const [scanResult, setScanResult] = useState<any>(null);
@@ -101,10 +159,10 @@ export default function SourcesPage() {
     useEffect(() => {
         if (!isScanning) return;
         const interval = setInterval(() => {
-            setStageIndex((prev) => (prev + 1) % SEARCH_STAGES.length);
+            setStageIndex((prev) => (prev + 1) % getSearchStages(platform).length);
         }, 2000);
         return () => clearInterval(interval);
-    }, [isScanning]);
+    }, [isScanning, platform]);
 
     const fetchSavedConfigs = async () => {
         try {
@@ -170,11 +228,23 @@ export default function SourcesPage() {
         }
     };
 
-    const addPack = (packKey: keyof typeof SUBREDDIT_PACKS) => {
-        const pack = SUBREDDIT_PACKS[packKey];
-        setSubreddits((prev) => [...new Set([...prev, ...pack.subreddits])]);
-        setKeywords((prev) => [...new Set([...prev, ...pack.keywords])]);
-        toast.success(`Added ${pack.name}`);
+    const addPack = (key: string) => {
+        if (platform === "reddit") {
+            const pack = SUBREDDIT_PACKS[key as keyof typeof SUBREDDIT_PACKS];
+            setSubreddits((prev) => [...new Set([...prev, ...pack.subreddits])]);
+            setKeywords((prev) => [...new Set([...prev, ...pack.keywords])]);
+            toast.success(`Added ${pack.name}`);
+        } else if (platform === "producthunt") {
+            const pack = TOPIC_PACKS[key as keyof typeof TOPIC_PACKS];
+            setSubreddits((prev) => [...new Set([...prev, ...pack.items])]);
+            setKeywords((prev) => [...new Set([...prev, ...pack.keywords])]);
+            toast.success(`Added ${pack.name}`);
+        } else {
+            const pack = INDIEHUSTLE_PACKS[key as keyof typeof INDIEHUSTLE_PACKS];
+            setSubreddits((prev) => [...new Set([...prev, ...pack.items])]);
+            setKeywords((prev) => [...new Set([...prev, ...pack.keywords])]);
+            toast.success(`Added ${pack.name}`);
+        }
     };
 
     const addSubreddit = () => {
@@ -215,8 +285,8 @@ export default function SourcesPage() {
             updateSlide({
                 id: `sub-${sub}`,
                 type: "subreddit",
-                content: `r/${sub}`,
-                detail: "Queuing subreddit...",
+                content: platform === "reddit" ? `r/${sub}` : sub,
+                detail: platform === "reddit" ? "Queuing subreddit..." : "Queuing topic...",
                 color: "cyan",
             });
             await new Promise((r) => setTimeout(r, 300));
@@ -226,7 +296,7 @@ export default function SourcesPage() {
             const response = await fetch("/api/scan", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ subreddits, keywords }),
+                body: JSON.stringify({ subreddits, keywords, platform, minRevenue }),
             });
 
             if (!response.body) throw new Error("No response body");
@@ -312,7 +382,7 @@ export default function SourcesPage() {
         }
     };
 
-    const currentStage = SEARCH_STAGES[stageIndex];
+    const currentStage = getSearchStages(platform)[stageIndex];
     const StageIcon = currentStage.icon;
 
     return (
@@ -322,7 +392,11 @@ export default function SourcesPage() {
                 <div>
                     <h1 className="text-3xl font-bold text-white mb-2">Search Configuration</h1>
                     <p className="text-[var(--text-muted)]">
-                        Configure subreddits and keywords to discover deals
+                        {platform === "reddit"
+                            ? "Configure subreddits and keywords to discover deals"
+                            : platform === "producthunt"
+                                ? "Configure topics to discover ProductHunt opportunities"
+                                : "Scan IndieHustle articles for business opportunities"}
                     </p>
                 </div>
                 <div className="flex gap-2">
@@ -466,10 +540,12 @@ export default function SourcesPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
                 {/* Subreddits */}
                 <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-6">
-                    <h2 className="font-semibold text-white mb-4 flex items-center gap-2">
-                        <Search className="w-5 h-5 text-cyan-400" />
-                        Subreddits
-                    </h2>
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="font-semibold text-white flex items-center gap-2">
+                            <Search className="w-5 h-5 text-cyan-400" />
+                            {platform === "reddit" ? "Subreddits" : "Topics"}
+                        </h2>
+                    </div>
 
                     <div className="flex gap-2 mb-4">
                         <input
@@ -477,7 +553,7 @@ export default function SourcesPage() {
                             value={newSubreddit}
                             onChange={(e) => setNewSubreddit(e.target.value)}
                             onKeyDown={(e) => e.key === "Enter" && addSubreddit()}
-                            placeholder="r/smallbusiness"
+                            placeholder={platform === "reddit" ? "r/smallbusiness" : "tech, productivity, saas"}
                             className="flex-1 bg-[var(--background)] border border-[var(--border)] rounded-lg px-4 py-2 text-white placeholder:text-[var(--text-dim)] focus:border-cyan-500 focus:outline-none"
                         />
                         <button onClick={addSubreddit} className="btn-primary px-4">
@@ -493,7 +569,7 @@ export default function SourcesPage() {
                                 animate={{ opacity: 1, scale: 1 }}
                                 className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20"
                             >
-                                r/{sub}
+                                {platform === "reddit" ? "r/" : ""}{sub}
                                 <button
                                     onClick={() => setSubreddits(subreddits.filter((s) => s !== sub))}
                                     className="hover:text-white"
@@ -503,71 +579,106 @@ export default function SourcesPage() {
                             </motion.span>
                         ))}
                         {subreddits.length === 0 && (
-                            <p className="text-[var(--text-dim)] text-sm">No subreddits added</p>
+                            <p className="text-[var(--text-dim)] text-sm">No {platform === "reddit" ? "subreddits" : "topics"} added</p>
                         )}
                     </div>
                 </div>
 
-                {/* Keywords */}
-                <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-6">
-                    <h2 className="font-semibold text-white mb-4 flex items-center gap-2">
-                        <Sparkles className="w-5 h-5 text-amber-400" />
-                        Keywords
-                    </h2>
+                {/* Keywords - Only for Reddit */}
+                {platform === "reddit" && (
+                    <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-6">
+                        <h2 className="font-semibold text-white mb-4 flex items-center gap-2">
+                            <Sparkles className="w-5 h-5 text-amber-400" />
+                            Keywords
+                        </h2>
 
-                    <div className="flex gap-2 mb-4">
-                        <input
-                            type="text"
-                            value={newKeyword}
-                            onChange={(e) => setNewKeyword(e.target.value)}
-                            onKeyDown={(e) => e.key === "Enter" && addKeyword()}
-                            placeholder="selling, MRR, exit..."
-                            className="flex-1 bg-[var(--background)] border border-[var(--border)] rounded-lg px-4 py-2 text-white placeholder:text-[var(--text-dim)] focus:border-amber-500 focus:outline-none"
-                        />
-                        <button onClick={addKeyword} className="btn-primary px-4 !bg-amber-500 hover:!bg-amber-600">
-                            <Plus className="w-4 h-4" />
-                        </button>
-                    </div>
+                        <div className="flex gap-2 mb-4">
+                            <input
+                                type="text"
+                                value={newKeyword}
+                                onChange={(e) => setNewKeyword(e.target.value)}
+                                onKeyDown={(e) => e.key === "Enter" && addKeyword()}
+                                placeholder="selling, MRR, exit..."
+                                className="flex-1 bg-[var(--background)] border border-[var(--border)] rounded-lg px-4 py-2 text-white placeholder:text-[var(--text-dim)] focus:border-amber-500 focus:outline-none"
+                            />
+                            <button onClick={addKeyword} className="btn-primary px-4 !bg-amber-500 hover:!bg-amber-600">
+                                <Plus className="w-4 h-4" />
+                            </button>
+                        </div>
 
-                    <div className="flex flex-wrap gap-2 min-h-[80px]">
-                        {keywords.map((kw) => (
-                            <motion.span
-                                key={kw}
-                                initial={{ opacity: 0, scale: 0.8 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20"
-                            >
-                                {kw}
-                                <button
-                                    onClick={() => setKeywords(keywords.filter((k) => k !== kw))}
-                                    className="hover:text-white"
+                        <div className="flex flex-wrap gap-2 min-h-[80px]">
+                            {keywords.map((kw) => (
+                                <motion.span
+                                    key={kw}
+                                    initial={{ opacity: 0, scale: 0.8 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20"
                                 >
-                                    <X className="w-3 h-3" />
-                                </button>
-                            </motion.span>
-                        ))}
-                        {keywords.length === 0 && (
-                            <p className="text-[var(--text-dim)] text-sm">No keywords added</p>
-                        )}
+                                    {kw}
+                                    <button
+                                        onClick={() => setKeywords(keywords.filter((k) => k !== kw))}
+                                        className="hover:text-white"
+                                    >
+                                        <X className="w-3 h-3" />
+                                    </button>
+                                </motion.span>
+                            ))}
+                            {keywords.length === 0 && (
+                                <p className="text-[var(--text-dim)] text-sm">No keywords added</p>
+                            )}
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* Filters Section */}
+            <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-6 mb-8">
+                <h2 className="font-semibold text-white mb-4 flex items-center gap-2">
+                    <DollarSign className="w-5 h-5 text-green-400" />
+                    Revenue Filter
+                </h2>
+                <div className="flex gap-4 items-center">
+                    <div className="flex-1 max-w-xs">
+                        <label className="text-xs text-[var(--text-muted)] mb-1 block">Min. Monthly Revenue ($)</label>
+                        <input
+                            type="number"
+                            value={minRevenue}
+                            onChange={(e) => setMinRevenue(e.target.value)}
+                            placeholder="e.g. 1000"
+                            className="w-full bg-[var(--background)] border border-[var(--border)] rounded-lg px-4 py-2 text-white placeholder:text-[var(--text-dim)] focus:border-green-500 focus:outline-none"
+                        />
+                    </div>
+                    <div className="flex-1">
+                        <p className="text-xs text-[var(--text-dim)] leading-relaxed mt-5">
+                            Set a minimum revenue threshold. Deals with revenue below this or "unknown" revenue might be filtered out (unless AI determines high potential).
+                        </p>
                     </div>
                 </div>
             </div>
 
             {/* Quick Add Packs */}
             <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-6 mb-8">
-                <h2 className="font-semibold text-white mb-4">Quick Add Packs</h2>
+                <h2 className="font-semibold text-white mb-4">Quick Add {platform === "reddit" ? "Packs" : platform === "producthunt" ? "Topics" : "Categories"}</h2>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {Object.entries(SUBREDDIT_PACKS).map(([key, pack]) => (
+                    {(platform === "reddit"
+                        ? Object.entries(SUBREDDIT_PACKS)
+                        : platform === "producthunt"
+                            ? Object.entries(TOPIC_PACKS)
+                            : Object.entries(INDIEHUSTLE_PACKS)
+                    ).map(([key, pack]) => (
                         <motion.button
                             key={key}
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
-                            onClick={() => addPack(key as keyof typeof SUBREDDIT_PACKS)}
+                            onClick={() => addPack(key)}
                             className={`p-4 rounded-xl bg-${pack.color}-500/5 border border-${pack.color}-500/20 hover:bg-${pack.color}-500/10 transition-all text-left`}
                         >
                             <h3 className={`font-semibold text-${pack.color}-400 mb-2`}>{pack.name}</h3>
                             <p className="text-xs text-[var(--text-muted)]">
-                                {pack.subreddits.map((s) => `r/${s}`).join(", ")}
+                                {platform === "reddit"
+                                    ? (pack as any).subreddits.map((s: string) => `r/${s}`).join(", ")
+                                    : (pack as any).items.map((s: string) => s).join(", ")
+                                }
                             </p>
                         </motion.button>
                     ))}
@@ -685,5 +796,13 @@ export default function SourcesPage() {
                 )}
             </AnimatePresence>
         </div>
+    );
+}
+
+export default function SourcesPage() {
+    return (
+        <Suspense fallback={<div className="flex items-center justify-center h-[60vh]"><Loader2 className="w-8 h-8 animate-spin text-cyan-400" /></div>}>
+            <SourcesContent />
+        </Suspense>
     );
 }

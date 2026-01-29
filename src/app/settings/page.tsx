@@ -120,9 +120,18 @@ export default function SettingsPage() {
     const clearAllDeals = async () => {
         setIsClearing(true);
         try {
-            // This would need a dedicated API endpoint
-            toast.success("Feature coming soon - clear deals manually via database");
+            const res = await fetch("/api/deals?action=reset", {
+                method: "DELETE",
+            });
+
+            if (res.ok) {
+                toast.success("System reset complete. All data cleared.");
+                setStats({ deals: 0, notes: 0 }); // Reset local stats
+            } else {
+                toast.error("Failed to reset system");
+            }
         } catch (error) {
+            console.error("Error resetting system:", error);
             toast.error("Failed to clear deals");
         } finally {
             setIsClearing(false);
@@ -156,8 +165,8 @@ export default function SettingsPage() {
                             <CheckCircle2 className="w-5 h-5 text-green-400" />
                         </div>
                     </div>
-                    <p className="text-2xl font-bold text-white">Free</p>
-                    <p className="text-sm text-[var(--text-muted)]">API Status</p>
+                    <p className="text-2xl font-bold text-white">Active</p>
+                    <p className="text-sm text-[var(--text-muted)]">Gemini AI</p>
                 </div>
 
                 <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-5">
@@ -166,8 +175,8 @@ export default function SettingsPage() {
                             <Zap className="w-5 h-5 text-amber-400" />
                         </div>
                     </div>
-                    <p className="text-2xl font-bold text-white">Local</p>
-                    <p className="text-sm text-[var(--text-muted)]">Scoring Engine</p>
+                    <p className="text-2xl font-bold text-white">Hybrid</p>
+                    <p className="text-sm text-[var(--text-muted)]">AI Scoring</p>
                 </div>
             </div>
 
@@ -230,9 +239,9 @@ export default function SettingsPage() {
                     <div className="flex items-start gap-3">
                         <CheckCircle2 className="w-5 h-5 text-green-400 mt-0.5" />
                         <div>
-                            <p className="font-medium text-white">Reddit Public JSON API</p>
+                            <p className="font-medium text-white">Multi-Source Intelligence</p>
                             <p className="text-sm text-[var(--text-muted)]">
-                                Free, no authentication required. Append .json to any Reddit URL.
+                                reddit, ProductHunt, and IndieHustle integration with real-time scanning.
                             </p>
                         </div>
                     </div>
@@ -240,9 +249,9 @@ export default function SettingsPage() {
                     <div className="flex items-start gap-3">
                         <CheckCircle2 className="w-5 h-5 text-green-400 mt-0.5" />
                         <div>
-                            <p className="font-medium text-white">Local Scoring Algorithm</p>
+                            <p className="font-medium text-white">Google Gemini AI</p>
                             <p className="text-sm text-[var(--text-muted)]">
-                                Keyword-based viability and motivation scoring. No external AI API needed.
+                                Advanced LLM analysis for deal viability, motivation scoring, and risk assessment.
                             </p>
                         </div>
                     </div>
@@ -250,9 +259,9 @@ export default function SettingsPage() {
                     <div className="flex items-start gap-3">
                         <CheckCircle2 className="w-5 h-5 text-green-400 mt-0.5" />
                         <div>
-                            <p className="font-medium text-white">SQLite Database</p>
+                            <p className="font-medium text-white">PostgreSQL Database</p>
                             <p className="text-sm text-[var(--text-muted)]">
-                                All data stored locally in prisma/dev.db. No cloud storage required.
+                                scalable cloud database for reliable data persistence and performance.
                             </p>
                         </div>
                     </div>
@@ -309,7 +318,7 @@ export default function SettingsPage() {
 
             {/* Version Info */}
             <div className="mt-8 text-center text-sm text-[var(--text-dim)]">
-                <p>DealFlow PE Intelligence Platform v1.0</p>
+                <p>Astute PE Intelligence Platform v2.0</p>
                 <p>Built with Next.js, Prisma, and ❤️</p>
             </div>
         </div>

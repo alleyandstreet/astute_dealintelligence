@@ -9,6 +9,7 @@ export const metadata: Metadata = {
 
 import { AuthProvider } from "@/components/AuthProvider";
 import { LayoutContent } from "@/components/LayoutContent";
+import TeamChat from "@/components/TeamChat";
 
 export default function RootLayout({
   children,
@@ -22,6 +23,7 @@ export default function RootLayout({
         <AuthProvider>
           <LayoutContent>
             {children}
+            <TeamChat />
           </LayoutContent>
         </AuthProvider>
         <Toaster

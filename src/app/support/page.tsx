@@ -21,7 +21,7 @@ import {
 const FAQS = [
     {
         question: "How do I find new deals?",
-        answer: "Navigate to the 'Search' page. You can scan various subreddits for keywords related to business sales, such as 'MRR', 'selling', or 'SaaS'. The system uses AI to score and summarize these leads for you."
+        answer: "Navigate to the 'Search' page. You can scan Reddit, ProductHunt, and IndieHustle for keywords related to business sales. The system uses Gemini AI to score and summarize these leads for you."
     },
     {
         question: "What is the Pipeline?",
@@ -29,7 +29,7 @@ const FAQS = [
     },
     {
         question: "How are Deal Scores calculated?",
-        answer: "We analyze post content for financial metrics, seller motivation, and business stability. 'Viability' measures the health of the asset, while 'Motivation' tracks how ready the seller is to exit."
+        answer: "We use Google's Gemini AI to analyze post content for financial metrics, seller motivation, and business stability. 'Viability' measures the health of the asset based on discovered metrics."
     },
     {
         question: "How do I add my own business data?",
@@ -65,7 +65,7 @@ export default function SupportPage() {
             const query = input.toLowerCase();
 
             if (query.includes("deal") || query.includes("search")) {
-                botResponse = "To find deals, head over to the Search tab. I recommend searching for 'SaaS' or 'E-commerce' to see the latest high-scoring leads.";
+                botResponse = "To find deals, head over to the Search tab. You can scan Reddit, ProductHunt, and IndieHustle for terms like 'SaaS' or 'E-commerce' to find high-scoring leads.";
             } else if (query.includes("pipeline") || query.includes("kanban")) {
                 botResponse = "The Pipeline helps you track progress. You can move deals through different stages by dragging them across the board.";
             } else if (query.includes("score")) {

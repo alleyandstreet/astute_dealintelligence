@@ -81,6 +81,9 @@ model Deal {
   contactReddit   String?
   contactEmail    String?
   contactWebsite  String?
+  contactTwitter  String?
+  contactLinkedIn String?
+  contactDiscord  String?
   notes       Note[]
   outreaches  Outreach[]
   tags        DealTag[]
@@ -136,4 +139,16 @@ model ScanLog {
   postsScanned Int      @default(0)
   dealsFound   Int      @default(0)
   errors       String?
+}
+
+model TeamMessage {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  content   String
+  sender    String   @default("User")
+  senderEmail String? // For identity verification
+  attachment String? // Base64 or URL
+  attachmentType String? // image, file, etc.
+  editHistory Json? // Array of { content, timestamp }
+  deletedFor String[] @default([]) // Array of emails
 }

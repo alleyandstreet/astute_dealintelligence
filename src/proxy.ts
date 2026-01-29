@@ -21,8 +21,7 @@ export default withAuth(
 );
 
 export const config = {
-    // Protect all routes except login, api/auth, and public files (anything with a dot)
     matcher: [
-        "/((?!login|api/auth|_next/static|_next/image|favicon.ico|.*\\.).*)",
+        "/((?!login|api/auth|api/scan|_next/static|_next/image|favicon.ico|.*\\.).*)",
     ],
 };

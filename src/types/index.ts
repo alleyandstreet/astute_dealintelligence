@@ -32,6 +32,16 @@ export interface Deal {
     contactReddit?: string | null;
     contactEmail?: string | null;
     contactWebsite?: string | null;
+    contactTwitter?: string | null;
+    contactLinkedIn?: string | null;
+    contactDiscord?: string | null;
+    notes?: Note[];
+}
+
+export interface Note {
+    id: string;
+    content: string;
+    createdAt: Date | string;
 }
 
 export interface User {

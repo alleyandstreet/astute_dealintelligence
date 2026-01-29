@@ -179,71 +179,84 @@ export default function Dashboard() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-8">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">Astute Dashboard</h1>
-          <p className="text-sm sm:text-base text-[var(--text-muted)] max-w-xl">
-            Real-time private equity deal intelligence and insights.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center bg-[var(--card)] border border-[var(--border)] rounded-lg p-1">
-            <button
-              onClick={handleUndo}
-              disabled={undoStack.length === 0}
-              className="p-2 hover:bg-[var(--background)] rounded text-[var(--text-muted)] disabled:opacity-30 disabled:cursor-not-allowed"
-              title="Undo Delete"
-            >
-              <Undo2 className="w-4 h-4" />
-            </button>
-            <button
-              onClick={handleRedo}
-              disabled={redoStack.length === 0}
-              className="p-2 hover:bg-[var(--background)] rounded text-[var(--text-muted)] disabled:opacity-30 disabled:cursor-not-allowed"
-              title="Redo Delete"
-            >
-              <Redo2 className="w-4 h-4" />
-            </button>
+      {/* Hero Header */}
+      <div className="relative">
+        <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/10 via-purple-500/10 to-pink-500/10 rounded-3xl blur-3xl opacity-50" />
+        <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-6 p-8 rounded-2xl glass-strong border border-white/10">
+          <div className="fade-in">
+            <h1 className="text-3xl sm:text-4xl font-bold mb-3">
+              <span className="gradient-text">Astute Dashboard</span>
+            </h1>
+            <p className="text-base text-[var(--text-muted)] max-w-xl leading-relaxed">
+              Real-time private equity deal intelligence and insights powered by AI
+            </p>
           </div>
+          <div className="flex flex-wrap items-center gap-3 slide-in-right">
+            <div className="flex items-center bg-[var(--card)] border border-[var(--border)] rounded-lg p-1">
+              <button
+                onClick={handleUndo}
+                disabled={undoStack.length === 0}
+                className="p-2 hover:bg-[var(--background)] rounded text-[var(--text-muted)] hover:text-cyan-400 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                title="Undo Delete"
+              >
+                <Undo2 className="w-4 h-4" />
+              </button>
+              <button
+                onClick={handleRedo}
+                disabled={redoStack.length === 0}
+                className="p-2 hover:bg-[var(--background)] rounded text-[var(--text-muted)] hover:text-cyan-400 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                title="Redo Delete"
+              >
+                <Redo2 className="w-4 h-4" />
+              </button>
+            </div>
 
-          <button
-            onClick={handleTotalReset}
-            disabled={isResetting || stats.totalDeals === 0}
-            className="btn-outline flex items-center gap-2 text-red-400 border-red-500/20 hover:bg-red-500/10 h-[40px] px-3 text-sm"
-          >
-            {isResetting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-            <span className="hidden xs:inline">Reset</span>
-          </button>
+            <button
+              onClick={handleTotalReset}
+              disabled={isResetting || stats.totalDeals === 0}
+              className="btn-outline flex items-center gap-2 text-red-400 border-red-500/20 hover:bg-red-500/10 h-[40px] px-3 text-sm"
+            >
+              {isResetting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+              <span className="hidden xs:inline">Reset</span>
+            </button>
 
-          <Link
-            href="/sources"
-            className="btn-primary flex items-center gap-2 h-[40px] px-4 text-sm"
-          >
-            <Search className="w-4 h-4" />
-            New Search
-          </Link>
+            <Link
+              href="/sources"
+              className="btn-primary flex items-center gap-2 h-[40px] px-4 text-sm"
+            >
+              <Search className="w-4 h-4" />
+              New Search
+            </Link>
+          </div>
         </div>
       </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {statCards.map((stat) => {
+        {statCards.map((stat, index) => {
           const Icon = stat.icon;
           return (
             <div
               key={stat.label}
-              className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-6"
+              className="card-premium group"
+              style={{ animationDelay: `${index * 100}ms` }}
             >
-              <div className="flex items-center justify-between mb-4">
-                <div className={`w-10 h-10 rounded-lg bg-${stat.color}-500/10 flex items-center justify-center`}>
-                  <Icon className={`w-5 h-5 text-${stat.color}-400`} />
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className={`w-12 h-12 rounded-xl bg-gradient-to-br from-${stat.color}-500/20 to-${stat.color}-600/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
+                    <Icon className={`w-6 h-6 text-${stat.color}-400`} />
+                  </div>
+                  <div className={`w-2 h-2 rounded-full bg-${stat.color}-400 animate-pulse`} />
                 </div>
+                <p className="text-3xl font-bold text-white mb-2 font-mono">
+                  {loading ? (
+                    <span className="shimmer inline-block w-16 h-8 rounded" />
+                  ) : (
+                    stat.value
+                  )}
+                </p>
+                <p className="text-sm text-[var(--text-muted)] font-medium">{stat.label}</p>
               </div>
-              <p className="text-3xl font-bold text-white mb-1">
-                {loading ? "--" : stat.value}
-              </p>
-              <p className="text-sm text-[var(--text-muted)]">{stat.label}</p>
             </div>
           );
         })}
@@ -253,108 +266,137 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <Link
           href="/sources"
-          className="bg-gradient-to-br from-cyan-500/10 to-cyan-600/5 border border-cyan-500/20 rounded-xl p-6 hover:border-cyan-500/40 transition-all group"
+          className="group relative bg-gradient-to-br from-cyan-500/10 to-cyan-600/5 border border-cyan-500/20 rounded-2xl p-6 hover:border-cyan-500/40 transition-all overflow-hidden"
         >
-          <Search className="w-8 h-8 text-cyan-400 mb-4" />
-          <h3 className="font-semibold text-white mb-2">Start Search</h3>
-          <p className="text-sm text-[var(--text-muted)] mb-4">
-            Configure subreddits and keywords to find deals
-          </p>
-          <span className="text-cyan-400 text-sm flex items-center gap-1 group-hover:gap-2 transition-all">
-            Configure <ArrowRight className="w-4 h-4" />
-          </span>
+          <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/0 to-cyan-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+          <div className="relative">
+            <div className="w-12 h-12 rounded-xl bg-cyan-500/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+              <Search className="w-6 h-6 text-cyan-400" />
+            </div>
+            <h3 className="font-bold text-white mb-2 text-lg">Start Search</h3>
+            <p className="text-sm text-[var(--text-muted)] mb-4 leading-relaxed">
+              Configure subreddits and keywords to find deals
+            </p>
+            <span className="text-cyan-400 text-sm font-medium flex items-center gap-1 group-hover:gap-2 transition-all">
+              Configure <ArrowRight className="w-4 h-4" />
+            </span>
+          </div>
         </Link>
 
         <Link
           href="/pipeline"
-          className="bg-gradient-to-br from-green-500/10 to-green-600/5 border border-green-500/20 rounded-xl p-6 hover:border-green-500/40 transition-all group"
+          className="group relative bg-gradient-to-br from-green-500/10 to-green-600/5 border border-green-500/20 rounded-2xl p-6 hover:border-green-500/40 transition-all overflow-hidden"
         >
-          <Kanban className="w-8 h-8 text-green-400 mb-4" />
-          <h3 className="font-semibold text-white mb-2">View Pipeline</h3>
-          <p className="text-sm text-[var(--text-muted)] mb-4">
-            Manage and track deals through your pipeline
-          </p>
-          <span className="text-green-400 text-sm flex items-center gap-1 group-hover:gap-2 transition-all">
-            Open <ArrowRight className="w-4 h-4" />
-          </span>
+          <div className="absolute inset-0 bg-gradient-to-br from-green-500/0 to-green-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+          <div className="relative">
+            <div className="w-12 h-12 rounded-xl bg-green-500/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+              <Kanban className="w-6 h-6 text-green-400" />
+            </div>
+            <h3 className="font-bold text-white mb-2 text-lg">View Pipeline</h3>
+            <p className="text-sm text-[var(--text-muted)] mb-4 leading-relaxed">
+              Manage and track deals through your pipeline
+            </p>
+            <span className="text-green-400 text-sm font-medium flex items-center gap-1 group-hover:gap-2 transition-all">
+              Open <ArrowRight className="w-4 h-4" />
+            </span>
+          </div>
         </Link>
 
         <Link
           href="/deals"
-          className="bg-gradient-to-br from-amber-500/10 to-amber-600/5 border border-amber-500/20 rounded-xl p-6 hover:border-amber-500/40 transition-all group"
+          className="group relative bg-gradient-to-br from-amber-500/10 to-amber-600/5 border border-amber-500/20 rounded-2xl p-6 hover:border-amber-500/40 transition-all overflow-hidden"
         >
-          <Activity className="w-8 h-8 text-amber-400 mb-4" />
-          <h3 className="font-semibold text-white mb-2">Browse Deals</h3>
-          <p className="text-sm text-[var(--text-muted)] mb-4">
-            View and filter all discovered deals
-          </p>
-          <span className="text-amber-400 text-sm flex items-center gap-1 group-hover:gap-2 transition-all">
-            Browse <ArrowRight className="w-4 h-4" />
-          </span>
+          <div className="absolute inset-0 bg-gradient-to-br from-amber-500/0 to-amber-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+          <div className="relative">
+            <div className="w-12 h-12 rounded-xl bg-amber-500/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+              <Activity className="w-6 h-6 text-amber-400" />
+            </div>
+            <h3 className="font-bold text-white mb-2 text-lg">Browse Deals</h3>
+            <p className="text-sm text-[var(--text-muted)] mb-4 leading-relaxed">
+              View and filter all discovered deals
+            </p>
+            <span className="text-amber-400 text-sm font-medium flex items-center gap-1 group-hover:gap-2 transition-all">
+              Browse <ArrowRight className="w-4 h-4" />
+            </span>
+          </div>
         </Link>
 
         <Link
           href="/support"
-          className="bg-gradient-to-br from-indigo-500/10 to-indigo-600/5 border border-indigo-500/20 rounded-xl p-6 hover:border-indigo-500/40 transition-all group"
+          className="group relative bg-gradient-to-br from-indigo-500/10 to-indigo-600/5 border border-indigo-500/20 rounded-2xl p-6 hover:border-indigo-500/40 transition-all overflow-hidden"
         >
-          <HelpCircle className="w-8 h-8 text-indigo-400 mb-4" />
-          <h3 className="font-semibold text-white mb-2">Support & Intel</h3>
-          <p className="text-sm text-[var(--text-muted)] mb-4">
-            FAQs, Tips & AI Platform Assistant
-          </p>
-          <span className="text-indigo-400 text-sm flex items-center gap-1 group-hover:gap-2 transition-all">
-            Learn More <ArrowRight className="w-4 h-4" />
-          </span>
+          <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/0 to-indigo-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+          <div className="relative">
+            <div className="w-12 h-12 rounded-xl bg-indigo-500/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+              <HelpCircle className="w-6 h-6 text-indigo-400" />
+            </div>
+            <h3 className="font-bold text-white mb-2 text-lg">Support & Intel</h3>
+            <p className="text-sm text-[var(--text-muted)] mb-4 leading-relaxed">
+              FAQs, Tips & AI Platform Assistant
+            </p>
+            <span className="text-indigo-400 text-sm font-medium flex items-center gap-1 group-hover:gap-2 transition-all">
+              Learn More <ArrowRight className="w-4 h-4" />
+            </span>
+          </div>
         </Link>
       </div>
 
       {/* Recent Deals */}
-      <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-6">
+      <div className="glass-strong rounded-2xl p-6 border border-white/10">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold text-white">Recent Deals</h2>
-          <Link href="/deals" className="text-cyan-400 text-sm hover:text-cyan-300">
-            View All →
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <Briefcase className="w-5 h-5 text-cyan-400" />
+            Recent Deals
+          </h2>
+          <Link href="/deals" className="text-cyan-400 text-sm hover:text-cyan-300 font-medium transition-colors flex items-center gap-1">
+            View All <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
 
         {loading ? (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="skeleton h-16 rounded-lg" />
+              <div key={i} className="skeleton h-20 rounded-xl" />
             ))}
           </div>
         ) : recentDeals.length === 0 ? (
-          <div className="text-center py-12">
-            <Briefcase className="w-12 h-12 text-[var(--text-dim)] mx-auto mb-4" />
-            <p className="text-[var(--text-muted)] mb-2">No deals yet</p>
+          <div className="text-center py-16">
+            <div className="w-16 h-16 rounded-2xl bg-cyan-500/10 flex items-center justify-center mx-auto mb-4">
+              <Briefcase className="w-8 h-8 text-cyan-400" />
+            </div>
+            <p className="text-[var(--text-muted)] mb-2 font-medium">No deals yet</p>
             <p className="text-sm text-[var(--text-dim)]">
               Start a search to discover opportunities
             </p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {recentDeals.map((deal) => (
               <button
                 key={deal.id}
                 onClick={() => openDeal(deal)}
-                className="w-full flex items-center justify-between p-4 rounded-lg bg-[var(--background)] hover:bg-[var(--card-hover)] transition-all text-left"
+                className="w-full flex items-center justify-between p-4 rounded-xl bg-[var(--card)]/50 hover:bg-[var(--card)] border border-[var(--border)] hover:border-cyan-500/30 transition-all text-left group"
               >
                 <div className="flex items-center gap-4">
-                  <div className={`w-2 h-2 rounded-full ${(deal.viabilityScore ?? 0) >= 70 ? "bg-green-400" :
-                    (deal.viabilityScore ?? 0) >= 50 ? "bg-amber-400" : "bg-zinc-400"
-                    }`} />
+                  <div className={`w-3 h-3 rounded-full ${(deal.viabilityScore ?? 0) >= 70 ? "bg-green-400 shadow-[0_0_10px_rgba(16,185,129,0.5)]" :
+                    (deal.viabilityScore ?? 0) >= 50 ? "bg-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.5)]" : "bg-zinc-400"
+                    } group-hover:scale-125 transition-transform`} />
                   <div>
-                    <p className="font-medium text-white line-clamp-1">{deal.name}</p>
-                    <p className="text-sm text-[var(--text-muted)]">
-                      {deal.sourceName || "Reddit"} • {deal.industry || "Unknown"} • {deal.revenue || "N/A"}
+                    <p className="font-semibold text-white line-clamp-1 group-hover:text-cyan-400 transition-colors">{deal.name}</p>
+                    <p className="text-sm text-[var(--text-muted)] flex items-center gap-2">
+                      <span>{deal.sourceName || "Reddit"}</span>
+                      <span className="w-1 h-1 rounded-full bg-[var(--text-dim)]" />
+                      <span>{deal.industry || "Unknown"}</span>
+                      <span className="w-1 h-1 rounded-full bg-[var(--text-dim)]" />
+                      <span>{deal.revenue || "N/A"}</span>
                     </p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="font-mono text-sm text-cyan-400">
+                  <p className="font-mono text-lg font-bold text-cyan-400">
                     {deal.viabilityScore ?? "--"}%
                   </p>
-                  <p className="text-xs text-[var(--text-dim)]">Viability</p>
+                  <p className="text-xs text-[var(--text-dim)] uppercase tracking-wider">Viability</p>
                 </div>
               </button>
             ))}

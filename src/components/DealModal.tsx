@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     X,
@@ -24,14 +25,10 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import TagManager from "./TagManager";
+import { STATUS_OPTIONS } from "@/lib/constants";
 
-import { Deal } from "@/types";
+import { Deal, Note } from "@/types";
 
-interface Note {
-    id: string;
-    content: string;
-    createdAt: string;
-}
 
 interface DealModalProps {
     deal: Deal | null;
@@ -39,6 +36,7 @@ interface DealModalProps {
     onClose: () => void;
     onStatusChange?: (id: string, status: string) => void;
     onDelete?: (id: string) => void;
+    onDealUpdated?: (deal: Deal) => void;
 }
 
 function formatCurrency(value: number | null | undefined): string {
@@ -70,15 +68,14 @@ Best regards,
 P.S. Even if now isn't the right time, I'd be glad to stay in touch for whenever you might be ready to explore options.`;
 }
 
-const STATUS_OPTIONS = [
-    { id: "new_leads", label: "New Lead", color: "cyan" },
-    { id: "qualified", label: "Qualified", color: "blue" },
-    { id: "contacted", label: "Contacted", color: "amber" },
-    { id: "in_discussion", label: "In Discussion", color: "purple" },
-    { id: "due_diligence", label: "Due Diligence", color: "green" },
-];
 
-export default function DealModal({ deal, isOpen, onClose, onStatusChange, onDelete }: DealModalProps) {
+
+export default function DealModal({ deal, isOpen, onClose, onStatusChange, onDelete, onDealUpdated }: DealModalProps) {
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
     const [copied, setCopied] = useState(false);
     const [activeTab, setActiveTab] = useState<"overview" | "outreach" | "notes">("overview");
     const [notes, setNotes] = useState<Note[]>([]);
@@ -138,7 +135,11 @@ export default function DealModal({ deal, isOpen, onClose, onStatusChange, onDel
             });
             if (res.ok) {
                 const note = await res.json();
-                setNotes([note, ...notes]);
+                const updatedNotes = [note, ...notes];
+                setNotes(updatedNotes);
+                if (onDealUpdated && deal) {
+                    onDealUpdated({ ...deal, notes: updatedNotes });
+                }
                 setNewNote("");
                 toast.success("Note added!");
             }
@@ -152,7 +153,11 @@ export default function DealModal({ deal, isOpen, onClose, onStatusChange, onDel
     const deleteNote = async (noteId: string) => {
         try {
             await fetch(`/api/notes?id=${noteId}`, { method: "DELETE" });
-            setNotes(notes.filter((n) => n.id !== noteId));
+            const updatedNotes = notes.filter((n) => n.id !== noteId);
+            setNotes(updatedNotes);
+            if (onDealUpdated && deal) {
+                onDealUpdated({ ...deal, notes: updatedNotes });
+            }
             toast.success("Note deleted");
         } catch (error) {
             toast.error("Failed to delete note");
@@ -191,7 +196,7 @@ export default function DealModal({ deal, isOpen, onClose, onStatusChange, onDel
         }
     }, [isOpen, activeTab, deal?.id]);
 
-    if (!deal) return null;
+    if (!deal || !mounted) return null;
 
     const riskFlags: string[] = deal.riskFlags ? JSON.parse(deal.riskFlags) : [];
     const sellerSignals: string[] = deal.sellerSignals ? JSON.parse(deal.sellerSignals) : [];
@@ -255,7 +260,7 @@ export default function DealModal({ deal, isOpen, onClose, onStatusChange, onDel
         }
     };
 
-    return (
+    return createPortal(
         <AnimatePresence>
             {isOpen && (
                 <>
@@ -462,18 +467,79 @@ export default function DealModal({ deal, isOpen, onClose, onStatusChange, onDel
                                         <div className="bg-[var(--background)] rounded-xl p-5 space-y-4">
                                             <h3 className="font-semibold text-white">Contact</h3>
                                             <div className="space-y-2">
+
+                                                {/* Author / Contact Person */}
                                                 {deal.redditAuthor && (
                                                     <div className="flex items-center gap-2">
-                                                        <a
-                                                            href={`https://reddit.com/u/${deal.redditAuthor}`}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="flex items-center gap-2 text-cyan-400 hover:text-cyan-300"
-                                                        >
-                                                            <User className="w-4 h-4" />
-                                                            u/{deal.redditAuthor}
-                                                        </a>
+                                                        {deal.source === 'reddit' ? (
+                                                            <a
+                                                                href={`https://reddit.com/u/${deal.redditAuthor}`}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="flex items-center gap-2 text-cyan-400 hover:text-cyan-300"
+                                                            >
+                                                                <User className="w-4 h-4" />
+                                                                u/{deal.redditAuthor}
+                                                            </a>
+                                                        ) : (
+                                                            <div className="flex items-center gap-2 text-[var(--text)]">
+                                                                <User className="w-4 h-4 text-[var(--text-muted)]" />
+                                                                {deal.redditAuthor}
+                                                            </div>
+                                                        )}
                                                         <span className="text-xs text-[var(--text-dim)]">in {deal.sourceName}</span>
+                                                    </div>
+                                                )}
+
+                                                {/* Additional Contact Methods */}
+                                                {deal.contactTwitter && (
+                                                    <a
+                                                        href={deal.contactTwitter}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="flex items-center gap-2 text-cyan-400 hover:text-cyan-300"
+                                                    >
+                                                        <ExternalLink className="w-4 h-4" />
+                                                        Twitter / X
+                                                    </a>
+                                                )}
+                                                {deal.contactLinkedIn && (
+                                                    <a
+                                                        href={deal.contactLinkedIn}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="flex items-center gap-2 text-cyan-400 hover:text-cyan-300"
+                                                    >
+                                                        <ExternalLink className="w-4 h-4" />
+                                                        LinkedIn
+                                                    </a>
+                                                )}
+                                                {deal.contactDiscord && (
+                                                    <a
+                                                        href={deal.contactDiscord}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="flex items-center gap-2 text-cyan-400 hover:text-cyan-300"
+                                                    >
+                                                        <ExternalLink className="w-4 h-4" />
+                                                        Discord
+                                                    </a>
+                                                )}
+                                                {deal.contactWebsite && (
+                                                    <a
+                                                        href={deal.contactWebsite}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="flex items-center gap-2 text-cyan-400 hover:text-cyan-300"
+                                                    >
+                                                        <ExternalLink className="w-4 h-4" />
+                                                        Website
+                                                    </a>
+                                                )}
+                                                {deal.contactEmail && (
+                                                    <div className="flex items-center gap-2 text-[var(--text)]">
+                                                        <div className="w-4 h-4 flex items-center justify-center">@</div>
+                                                        {deal.contactEmail}
                                                     </div>
                                                 )}
                                                 {deal.redditUrl && (
@@ -635,7 +701,7 @@ export default function DealModal({ deal, isOpen, onClose, onStatusChange, onDel
                                             </button>
                                         </div>
                                         <p className="text-[var(--text-muted)] text-sm mb-0">
-                                            Crafted by Gemini AI based on context. Copy and send via Reddit DM.
+                                            Crafted by Gemini AI based on context. Copy and send via {deal.source === 'ProductHunt' ? 'ProductHunt' : 'Reddit DM'}.
                                         </p>
                                     </div>
 
@@ -667,7 +733,17 @@ export default function DealModal({ deal, isOpen, onClose, onStatusChange, onDel
                                     </div>
 
                                     <div className="mt-6 flex gap-4">
-                                        {deal.redditAuthor && (
+                                        {deal.source === 'ProductHunt' && deal.redditUrl ? (
+                                            <a
+                                                href={deal.redditUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="btn-primary flex items-center gap-2"
+                                            >
+                                                <ExternalLink className="w-4 h-4" />
+                                                Open ProductHunt
+                                            </a>
+                                        ) : deal.source === 'reddit' && deal.redditAuthor && (
                                             <a
                                                 href={`https://www.reddit.com/message/compose/?to=${deal.redditAuthor}`}
                                                 target="_blank"
@@ -696,5 +772,5 @@ export default function DealModal({ deal, isOpen, onClose, onStatusChange, onDel
                 </>
             )}
         </AnimatePresence>
-    );
+        , document.body);
 }

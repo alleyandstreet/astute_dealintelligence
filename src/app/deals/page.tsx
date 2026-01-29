@@ -5,27 +5,26 @@ import { Search, Filter, Loader2, ExternalLink, TrendingUp, AlertTriangle, Rotat
 import { toast } from "sonner";
 import Link from "next/link";
 import DealModal from "@/components/DealModal";
+import DealCard from "@/components/DealCard";
 
 import { Deal } from "@/types";
 
-function formatCurrency(value: number | null | undefined): string {
-    if (value === null || value === undefined) return "N/A";
-    if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
-    if (value >= 1000) return `$${(value / 1000).toFixed(0)}K`;
-    return `$${value}`;
-}
+
 
 export default function DealsPage() {
     const [deals, setDeals] = useState<Deal[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
     const [industryFilter, setIndustryFilter] = useState<string>("all");
+    const [sourceFilter, setSourceFilter] = useState<string>("all");
     const [minScore, setMinScore] = useState<number>(0);
     const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [undoStack, setUndoStack] = useState<Deal[]>([]);
     const [redoStack, setRedoStack] = useState<Deal[]>([]);
     const [isResetting, setIsResetting] = useState(false);
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
     useEffect(() => {
         fetchDeals();
@@ -57,12 +56,29 @@ export default function DealsPage() {
         }
     };
 
-    const handleDelete = (id: string) => {
+    const handleDelete = async (id: string) => {
         const dealToDelete = deals.find(d => d.id === id);
         if (dealToDelete) {
-            setUndoStack(prev => [...prev, dealToDelete]);
-            setRedoStack([]); // Clear redo on new action
-            setDeals(prev => prev.filter(d => d.id !== id));
+            try {
+                // Optimistic update
+                setDeals(prev => prev.filter(d => d.id !== id));
+                setUndoStack(prev => [...prev, dealToDelete]);
+                setRedoStack([]);
+
+                const res = await fetch(`/api/deals?id=${id}`, {
+                    method: "DELETE",
+                });
+
+                if (!res.ok) {
+                    throw new Error("Failed to delete");
+                }
+
+                toast.success("Deal deleted");
+            } catch (error) {
+                toast.error("Failed to delete deal");
+                // Revert
+                setDeals(prev => [...prev, dealToDelete]);
+            }
         }
     };
 
@@ -110,26 +126,92 @@ export default function DealsPage() {
     };
 
     const handleTotalReset = async () => {
-        const confirmed = window.confirm("Are you sure you want to delete ALL deals? This cannot be undone.");
-        if (!confirmed) return;
+        toast("Are you sure you want to delete ALL deals?", {
+            description: "This action cannot be undone.",
+            action: {
+                label: "Delete All",
+                onClick: async () => {
+                    setIsResetting(true);
+                    try {
+                        const res = await fetch("/api/deals?action=reset", {
+                            method: "DELETE",
+                        });
 
-        setIsResetting(true);
-        try {
-            const res = await fetch("/api/deals?action=reset", {
-                method: "DELETE",
-            });
+                        if (res.ok) {
+                            setDeals([]);
+                            setUndoStack([]);
+                            setRedoStack([]);
+                            setSelectedIds(new Set());
+                            toast.success("All deals cleared");
+                        } else {
+                            toast.error("Failed to reset");
+                        }
+                    } catch (error) {
+                        toast.error("Failed to reset deals");
+                    } finally {
+                        setIsResetting(false);
+                    }
+                },
+            },
+            cancel: {
+                label: "Cancel",
+                onClick: () => { },
+            },
+            duration: 5000,
+        });
+    };
 
-            if (res.ok) {
-                setDeals([]);
-                setUndoStack([]);
-                setRedoStack([]);
-                toast.success("All deals cleared");
-            }
-        } catch (error) {
-            toast.error("Failed to reset deals");
-        } finally {
-            setIsResetting(false);
+    const toggleSelect = (id: string) => {
+        const next = new Set(selectedIds);
+        if (next.has(id)) {
+            next.delete(id);
+        } else {
+            next.add(id);
         }
+        setSelectedIds(next);
+    };
+
+    const handleBulkDelete = async () => {
+        if (selectedIds.size === 0) return;
+
+        toast("Delete selected deals?", {
+            description: `This will permanently delete ${selectedIds.size} deals.`,
+            action: {
+                label: "Delete",
+                onClick: async () => {
+                    setIsBulkDeleting(true);
+                    try {
+                        const ids = Array.from(selectedIds);
+
+                        // Optimistic update
+                        const previousDeals = [...deals];
+                        setDeals(prev => prev.filter(d => !selectedIds.has(d.id)));
+                        setSelectedIds(new Set()); // Clear selection immediately
+
+                        const res = await fetch("/api/deals", {
+                            method: "DELETE",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ ids }),
+                        });
+
+                        if (res.ok) {
+                            toast.success(`Deleted ${ids.length} deals`);
+                            setUndoStack([]); // Clear undo stack to avoid complexity for now
+                            setRedoStack([]);
+                        } else {
+                            throw new Error("Failed to delete");
+                        }
+                    } catch (error) {
+                        toast.error("Failed to delete deals");
+                        // Revert could be implemented here by fetching again or restoring previousDeals
+                        fetchDeals(); // Safest fallback
+                    } finally {
+                        setIsBulkDeleting(false);
+                    }
+                }
+            },
+            cancel: { label: "Cancel", onClick: () => { } }
+        });
     };
 
     const industries = [...new Set(deals.map((d) => d.industry).filter(Boolean))];
@@ -139,6 +221,9 @@ export default function DealsPage() {
             return false;
         }
         if (industryFilter !== "all" && deal.industry !== industryFilter) {
+            return false;
+        }
+        if (sourceFilter !== "all" && deal.source !== sourceFilter) {
             return false;
         }
         if ((deal.viabilityScore ?? 0) < minScore) {
@@ -159,18 +244,20 @@ export default function DealsPage() {
         <div className="max-w-7xl mx-auto space-y-6">
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-                <div>
-                    <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">Browse Deals</h1>
+                <div className="fade-in">
+                    <h1 className="text-2xl sm:text-3xl font-bold mb-2">
+                        <span className="gradient-text">Browse Deals</span>
+                    </h1>
                     <p className="text-sm text-[var(--text-muted)]">
-                        Showing {filteredDeals.length} of {deals.length} discovered opportunities
+                        Showing <span className="text-cyan-400 font-semibold">{filteredDeals.length}</span> of <span className="text-white font-semibold">{deals.length}</span> discovered opportunities
                     </p>
                 </div>
-                <div className="flex flex-wrap items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3 slide-in-right">
                     <div className="flex items-center bg-[var(--card)] border border-[var(--border)] rounded-lg p-1">
                         <button
                             onClick={handleUndo}
                             disabled={undoStack.length === 0}
-                            className="p-2 hover:bg-[var(--background)] rounded text-[var(--text-muted)] disabled:opacity-30 disabled:cursor-not-allowed"
+                            className="p-2 hover:bg-[var(--background)] rounded text-[var(--text-muted)] hover:text-cyan-400 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                             title="Undo Delete"
                         >
                             <Undo2 className="w-4 h-4" />
@@ -178,12 +265,23 @@ export default function DealsPage() {
                         <button
                             onClick={handleRedo}
                             disabled={redoStack.length === 0}
-                            className="p-2 hover:bg-[var(--background)] rounded text-[var(--text-muted)] disabled:opacity-30 disabled:cursor-not-allowed"
+                            className="p-2 hover:bg-[var(--background)] rounded text-[var(--text-muted)] hover:text-cyan-400 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                             title="Redo Delete"
                         >
                             <Redo2 className="w-4 h-4" />
                         </button>
                     </div>
+
+                    {selectedIds.size > 0 && (
+                        <button
+                            onClick={handleBulkDelete}
+                            disabled={isBulkDeleting}
+                            className="btn-outline flex items-center gap-2 text-red-400 border-red-500/20 hover:bg-red-500/10 h-[40px] px-3 text-sm animate-in fade-in slide-in-from-top-2"
+                        >
+                            {isBulkDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                            Delete Selected ({selectedIds.size})
+                        </button>
+                    )}
 
                     <button
                         onClick={handleTotalReset}
@@ -202,7 +300,7 @@ export default function DealsPage() {
             </div>
 
             {/* Filters */}
-            <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-4 mb-6 flex flex-wrap gap-4">
+            <div className="glass-strong border border-white/10 rounded-2xl p-5 mb-6 flex flex-wrap gap-4 scale-in">
                 {/* Search */}
                 <div className="flex-1 min-w-[200px]">
                     <div className="relative">
@@ -212,7 +310,7 @@ export default function DealsPage() {
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             placeholder="Search deals..."
-                            className="w-full bg-[var(--background)] border border-[var(--border)] rounded-lg pl-10 pr-4 py-2 text-white placeholder:text-[var(--text-dim)] focus:border-cyan-500 focus:outline-none"
+                            className="w-full bg-[var(--background)] border border-[var(--border)] rounded-xl pl-10 pr-4 py-2.5 text-white placeholder:text-[var(--text-dim)] focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 focus:outline-none transition-all"
                         />
                     </div>
                 </div>
@@ -221,7 +319,7 @@ export default function DealsPage() {
                 <select
                     value={industryFilter}
                     onChange={(e) => setIndustryFilter(e.target.value)}
-                    className="bg-[var(--background)] border border-[var(--border)] rounded-lg px-4 py-2 text-white focus:border-cyan-500 focus:outline-none"
+                    className="bg-[var(--background)] border border-[var(--border)] rounded-xl px-4 py-2.5 text-white focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 focus:outline-none transition-all cursor-pointer"
                 >
                     <option value="all">All Industries</option>
                     {industries.map((ind) => (
@@ -231,19 +329,31 @@ export default function DealsPage() {
                     ))}
                 </select>
 
+                {/* Source filter */}
+                <select
+                    value={sourceFilter}
+                    onChange={(e) => setSourceFilter(e.target.value)}
+                    className="bg-[var(--background)] border border-[var(--border)] rounded-xl px-4 py-2.5 text-white focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 focus:outline-none transition-all cursor-pointer"
+                >
+                    <option value="all">All Sources</option>
+                    <option value="reddit">Reddit</option>
+                    <option value="ProductHunt">Product Hunt</option>
+                    <option value="indiehustle">Indie Hustle</option>
+                </select>
+
                 {/* Score filter */}
-                <div className="flex items-center gap-2">
-                    <Filter className="w-4 h-4 text-[var(--text-muted)]" />
-                    <span className="text-sm text-[var(--text-muted)]">Min Score:</span>
+                <div className="flex items-center gap-3 bg-[var(--background)] border border-[var(--border)] rounded-xl px-4 py-2.5">
+                    <Filter className="w-4 h-4 text-cyan-400" />
+                    <span className="text-sm text-[var(--text-muted)] font-medium">Min Score:</span>
                     <input
                         type="range"
                         min="0"
                         max="100"
                         value={minScore}
                         onChange={(e) => setMinScore(parseInt(e.target.value))}
-                        className="w-24"
+                        className="w-24 accent-cyan-500"
                     />
-                    <span className="text-sm text-cyan-400 font-mono w-8">{minScore}</span>
+                    <span className="text-sm text-cyan-400 font-mono font-bold w-10 text-right">{minScore}%</span>
                 </div>
             </div>
 
@@ -258,115 +368,17 @@ export default function DealsPage() {
                 </div>
             ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    {filteredDeals.map((deal) => {
-                        const riskFlags = deal.riskFlags ? JSON.parse(deal.riskFlags) : [];
-                        const isHot = (deal.motivationScore ?? 0) >= 80;
-
-                        return (
-                            <div
-                                key={deal.id}
-                                onClick={() => openDeal(deal)}
-                                className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-5 hover:border-[var(--border-light)] transition-all cursor-pointer"
-                            >
-                                {/* Header */}
-                                <div className="flex items-start justify-between mb-3">
-                                    <div className="flex items-center gap-2">
-                                        <span
-                                            className={`px-2 py-1 rounded-md text-xs font-semibold ${(deal.viabilityScore ?? 0) >= 70
-                                                ? "bg-green-500/20 text-green-400"
-                                                : (deal.viabilityScore ?? 0) >= 50
-                                                    ? "bg-amber-500/20 text-amber-400"
-                                                    : "bg-zinc-600/50 text-zinc-400"
-                                                }`}
-                                        >
-                                            {deal.viabilityScore ?? "--"}
-                                        </span>
-                                        {isHot && (
-                                            <span className="px-2 py-1 rounded-md text-xs bg-red-500/20 text-red-400 animate-pulse">
-                                                🔥 HOT
-                                            </span>
-                                        )}
-                                    </div>
-                                    {deal.industry && (
-                                        <span className="px-2 py-1 rounded-md text-xs bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-                                            {deal.industry}
-                                        </span>
-                                    )}
-                                </div>
-
-                                {/* Title */}
-                                <h3 className="font-semibold text-white mb-2 line-clamp-2">{deal.name}</h3>
-
-                                {/* Metrics */}
-                                <div className="grid grid-cols-2 gap-4 mb-3">
-                                    <div>
-                                        <p className="text-xs text-[var(--text-dim)]">Revenue</p>
-                                        <p className="font-mono text-sm text-[var(--text)]">
-                                            {formatCurrency(deal.revenue)}
-                                            {deal.revenueType && ` ${deal.revenueType}`}
-                                        </p>
-                                    </div>
-                                    <div>
-                                        <p className="text-xs text-[var(--text-dim)]">Valuation</p>
-                                        <p className="font-mono text-sm text-[var(--text)]">
-                                            {deal.valuationMin && deal.valuationMax
-                                                ? `${formatCurrency(deal.valuationMin)} - ${formatCurrency(deal.valuationMax)}`
-                                                : "N/A"}
-                                        </p>
-                                    </div>
-                                </div>
-
-                                {/* Scores */}
-                                <div className="flex gap-4 mb-3 text-xs">
-                                    <div className="flex items-center gap-1 text-[var(--text-muted)]">
-                                        <TrendingUp className="w-3 h-3" />
-                                        <span>Viability: {deal.viabilityScore ?? "--"}</span>
-                                    </div>
-                                    <div className="flex items-center gap-1 text-[var(--text-muted)]">
-                                        <span>Motivation: {deal.motivationScore ?? "--"}</span>
-                                    </div>
-                                </div>
-
-                                {/* AI Summary */}
-                                {deal.aiSummary && (
-                                    <p className="text-sm text-[var(--text-muted)] mb-3 line-clamp-2">
-                                        {deal.aiSummary}
-                                    </p>
-                                )}
-
-                                {/* Risk Flags */}
-                                {riskFlags.length > 0 && (
-                                    <div className="flex items-center gap-1 text-xs text-amber-400 mb-3">
-                                        <AlertTriangle className="w-3 h-3" />
-                                        <span>
-                                            {riskFlags.length} risk flag{riskFlags.length > 1 ? "s" : ""}
-                                        </span>
-                                    </div>
-                                )}
-
-                                {/* Footer */}
-                                <div className="flex items-center justify-between pt-3 border-t border-[var(--border)]">
-                                    {deal.redditAuthor && (
-                                        <span className="text-xs text-[var(--text-dim)]">
-                                            u/{deal.redditAuthor}
-                                        </span>
-                                    )}
-                                    {deal.redditUrl && (
-                                        <a
-                                            href={deal.redditUrl}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            onClick={(e) => e.stopPropagation()}
-                                            className="flex items-center gap-1 text-xs text-cyan-400 hover:text-cyan-300"
-                                        >
-                                            <ExternalLink className="w-3 h-3" />
-                                            View on Reddit
-                                        </a>
-                                    )}
-                                </div>
-                            </div>
-                        );
-                    })}
+                    {filteredDeals.map((deal) => (
+                        <DealCard
+                            key={deal.id}
+                            deal={deal}
+                            onClick={() => openDeal(deal)}
+                            onDelete={handleDelete}
+                            selected={selectedIds.has(deal.id)}
+                            onSelect={() => toggleSelect(deal.id)}
+                            selectionMode={selectedIds.size > 0}
+                        />
+                    ))}
                 </div>
             )}
 
@@ -377,6 +389,12 @@ export default function DealsPage() {
                 onClose={() => setIsModalOpen(false)}
                 onStatusChange={handleStatusChange}
                 onDelete={handleDelete}
+                onDealUpdated={(updatedDeal) => {
+                    setDeals(prev => prev.map(d => d.id === updatedDeal.id ? updatedDeal : d));
+                    if (selectedDeal?.id === updatedDeal.id) {
+                        setSelectedDeal(updatedDeal);
+                    }
+                }}
             />
         </div>
     );

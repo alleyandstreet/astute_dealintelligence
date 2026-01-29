@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { usePathname } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import { Menu } from "lucide-react";
+import { AstuteLogo } from "@/components/AstuteLogo";
 
 export function LayoutContent({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
@@ -19,8 +20,8 @@ export function LayoutContent({ children }: { children: React.ReactNode }) {
             {/* Mobile Header */}
             <header className="lg:hidden h-16 bg-[var(--card)] border-b border-[var(--border)] flex items-center justify-between px-4 sticky top-0 z-40">
                 <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg overflow-hidden border border-white/10 shadow-lg">
-                        <img src="/brand-logo.jpg" alt="Alley & Street" className="w-full h-full object-cover" />
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-indigo-600 flex items-center justify-center shadow-lg">
+                        <AstuteLogo className="w-5 h-5 text-white" />
                     </div>
                     <span className="font-semibold text-white tracking-tight">Astute</span>
                 </div>
@@ -34,7 +35,9 @@ export function LayoutContent({ children }: { children: React.ReactNode }) {
             </header>
 
             <div className="flex flex-1">
-                <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+                <Suspense fallback={null}>
+                    <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+                </Suspense>
 
                 {/* Main Content Area */}
                 <main className="flex-1 lg:ml-64 p-4 sm:p-6 lg:p-8 overflow-x-hidden">

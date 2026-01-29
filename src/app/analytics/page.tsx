@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { Loader2, TrendingUp, Briefcase, Target, BarChart3 } from "lucide-react";
 import {
     BarChart,
@@ -22,7 +23,9 @@ import { Deal } from "@/types";
 
 const COLORS = ["#06b6d4", "#10b981", "#f59e0b", "#8b5cf6", "#ef4444"];
 
-export default function AnalyticsPage() {
+function AnalyticsContent() {
+    const searchParams = useSearchParams();
+    const sourceParam = searchParams.get("source");
     const [deals, setDeals] = useState<Deal[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -44,8 +47,13 @@ export default function AnalyticsPage() {
         }
     };
 
-    // Calculate analytics
-    const industryData = deals.reduce((acc: Record<string, number>, deal) => {
+    // Filter deals based on source if present
+    const filteredDeals = sourceParam
+        ? deals.filter(d => d.source?.toLowerCase() === sourceParam.toLowerCase() || (sourceParam === 'reddit' && !d.source))
+        : deals;
+
+    // Calculate analytics on filtered deals
+    const industryData = filteredDeals.reduce((acc: Record<string, number>, deal) => {
         const industry = deal.industry || "Other";
         acc[industry] = (acc[industry] || 0) + 1;
         return acc;
@@ -57,21 +65,21 @@ export default function AnalyticsPage() {
     }));
 
     const qualityData = [
-        { name: "High (70+)", value: deals.filter((d) => (d.viabilityScore ?? 0) >= 70).length },
-        { name: "Medium (50-69)", value: deals.filter((d) => (d.viabilityScore ?? 0) >= 50 && (d.viabilityScore ?? 0) < 70).length },
-        { name: "Low (<50)", value: deals.filter((d) => (d.viabilityScore ?? 0) < 50).length },
+        { name: "High (70+)", value: filteredDeals.filter((d) => (d.viabilityScore ?? 0) >= 70).length },
+        { name: "Medium (50-69)", value: filteredDeals.filter((d) => (d.viabilityScore ?? 0) >= 50 && (d.viabilityScore ?? 0) < 70).length },
+        { name: "Low (<50)", value: filteredDeals.filter((d) => (d.viabilityScore ?? 0) < 50).length },
     ];
 
     const statusData = [
-        { name: "New", value: deals.filter((d) => d.status === "new_leads").length },
-        { name: "Qualified", value: deals.filter((d) => d.status === "qualified").length },
-        { name: "Contacted", value: deals.filter((d) => d.status === "contacted").length },
-        { name: "Discussion", value: deals.filter((d) => d.status === "in_discussion").length },
-        { name: "DD", value: deals.filter((d) => d.status === "due_diligence").length },
+        { name: "New", value: filteredDeals.filter((d) => d.status === "new_leads").length },
+        { name: "Qualified", value: filteredDeals.filter((d) => d.status === "qualified").length },
+        { name: "Contacted", value: filteredDeals.filter((d) => d.status === "contacted").length },
+        { name: "Discussion", value: filteredDeals.filter((d) => d.status === "in_discussion").length },
+        { name: "DD", value: filteredDeals.filter((d) => d.status === "due_diligence").length },
     ];
 
-    // Subreddit performance
-    const subredditData = deals.reduce((acc: Record<string, { count: number; avgScore: number }>, deal) => {
+    // Subreddit/Topic performance
+    const subredditData = filteredDeals.reduce((acc: Record<string, { count: number; avgScore: number }>, deal) => {
         const source = deal.sourceName || "Unknown";
         if (!acc[source]) acc[source] = { count: 0, avgScore: 0 };
         acc[source].count++;
@@ -89,13 +97,13 @@ export default function AnalyticsPage() {
         .slice(0, 5);
 
     // Stats
-    const avgViability = deals.length > 0
-        ? Math.round(deals.reduce((acc, d) => acc + (d.viabilityScore ?? 0), 0) / deals.length)
+    const avgViability = filteredDeals.length > 0
+        ? Math.round(filteredDeals.reduce((acc, d) => acc + (d.viabilityScore ?? 0), 0) / filteredDeals.length)
         : 0;
-    const avgMotivation = deals.length > 0
-        ? Math.round(deals.reduce((acc, d) => acc + (d.motivationScore ?? 0), 0) / deals.length)
+    const avgMotivation = filteredDeals.length > 0
+        ? Math.round(filteredDeals.reduce((acc, d) => acc + (d.motivationScore ?? 0), 0) / filteredDeals.length)
         : 0;
-    const hotDeals = deals.filter((d) => (d.viabilityScore ?? 0) >= 70 && (d.motivationScore ?? 0) >= 60).length;
+    const hotDeals = filteredDeals.filter((d) => (d.viabilityScore ?? 0) >= 70 && (d.motivationScore ?? 0) >= 60).length;
 
     if (loading) {
         return (
@@ -109,9 +117,21 @@ export default function AnalyticsPage() {
         <div className="max-w-7xl mx-auto space-y-8">
             {/* Header */}
             <div className="mb-8">
-                <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">Analytics</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">
+                    {sourceParam === 'producthunt'
+                        ? 'ProductHunt Analytics'
+                        : sourceParam === 'indiehustle'
+                            ? 'IndieHustle Analytics'
+                            : sourceParam === 'reddit'
+                                ? 'Reddit Analytics'
+                                : 'Unified Analytics'}
+                </h1>
                 <p className="text-sm sm:text-base text-[var(--text-muted)]">
-                    Market intelligence and aggregate deal performance insights.
+                    {sourceParam === 'producthunt'
+                        ? 'Deep dive into ProductHunt launch metrics and trends.'
+                        : sourceParam === 'indiehustle'
+                            ? 'Insights from IndieHustle newsletters and deal flow.'
+                            : 'Insights from Reddit conversations and deal flow.'}
                 </p>
             </div>
 
@@ -123,7 +143,7 @@ export default function AnalyticsPage() {
                             <Briefcase className="w-5 h-5 text-cyan-400" />
                         </div>
                     </div>
-                    <p className="text-3xl font-bold text-white">{deals.length}</p>
+                    <p className="text-3xl font-bold text-white">{filteredDeals.length}</p>
                     <p className="text-sm text-[var(--text-muted)]">Total Deals</p>
                 </div>
 
@@ -158,8 +178,9 @@ export default function AnalyticsPage() {
                 </div>
             </div>
 
-            {/* Charts Grid */}
+            {/* Charts Grid - Continuation passed to parent */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+
                 {/* Industry Distribution */}
                 <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-6">
                     <h3 className="font-semibold text-white mb-4">Deals by Industry</h3>
@@ -185,6 +206,8 @@ export default function AnalyticsPage() {
                                         border: "1px solid var(--border)",
                                         borderRadius: "8px",
                                     }}
+                                    itemStyle={{ color: "white" }}
+                                    labelStyle={{ color: "white" }}
                                 />
                                 <Legend />
                             </PieChart>
@@ -210,6 +233,8 @@ export default function AnalyticsPage() {
                                     border: "1px solid var(--border)",
                                     borderRadius: "8px",
                                 }}
+                                itemStyle={{ color: "white" }}
+                                labelStyle={{ color: "white" }}
                             />
                             <Bar dataKey="value" fill="#06b6d4" radius={[4, 4, 0, 0]} />
                         </BarChart>
@@ -230,6 +255,8 @@ export default function AnalyticsPage() {
                                     border: "1px solid var(--border)",
                                     borderRadius: "8px",
                                 }}
+                                itemStyle={{ color: "white" }}
+                                labelStyle={{ color: "white" }}
                             />
                             <Bar dataKey="value" fill="#10b981" radius={[0, 4, 4, 0]} />
                         </BarChart>
@@ -238,7 +265,7 @@ export default function AnalyticsPage() {
 
                 {/* Subreddit Performance */}
                 <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-6">
-                    <h3 className="font-semibold text-white mb-4">Top Subreddits</h3>
+                    <h3 className="font-semibold text-white mb-4">Top {sourceParam === 'producthunt' ? 'Makers' : 'Subreddits'}</h3>
                     {subredditChartData.length > 0 ? (
                         <ResponsiveContainer width="100%" height={250}>
                             <BarChart data={subredditChartData}>
@@ -251,6 +278,8 @@ export default function AnalyticsPage() {
                                         border: "1px solid var(--border)",
                                         borderRadius: "8px",
                                     }}
+                                    itemStyle={{ color: "white" }}
+                                    labelStyle={{ color: "white" }}
                                 />
                                 <Bar dataKey="deals" fill="#f59e0b" radius={[4, 4, 0, 0]} name="Deals" />
                             </BarChart>
@@ -263,5 +292,13 @@ export default function AnalyticsPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function AnalyticsPage() {
+    return (
+        <Suspense fallback={<div className="flex items-center justify-center h-[60vh]"><Loader2 className="w-8 h-8 animate-spin text-cyan-400" /></div>}>
+            <AnalyticsContent />
+        </Suspense>
     );
 }

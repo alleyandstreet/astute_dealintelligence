@@ -7,6 +7,7 @@ export async function GET() {
             orderBy: { createdAt: "desc" },
             include: {
                 tags: { include: { tag: true } },
+                notes: true,
             },
         });
         return NextResponse.json(deals);
@@ -91,6 +92,26 @@ export async function DELETE(request: NextRequest) {
     console.log(`DELETE request received: id=${id}, action=${action}`);
 
     try {
+        // Bulk Delete Support: Try to parse body for "ids"
+        let bulkIds: string[] = [];
+        try {
+            // Clone request to avoid "Body is unusable" if we read it and fail
+            const body = await request.clone().json().catch(() => ({}));
+            if (body.ids && Array.isArray(body.ids)) {
+                bulkIds = body.ids;
+            }
+        } catch (e) {
+            // Ignore body read errors (e.g. GET/DELETE with no body)
+        }
+
+        if (bulkIds.length > 0) {
+            console.log(`Bulk deleting ${bulkIds.length} deals`);
+            await db.deal.deleteMany({
+                where: { id: { in: bulkIds } },
+            });
+            return NextResponse.json({ success: true, count: bulkIds.length });
+        }
+
         if (action === "reset") {
             console.log("Performing TOTAL RESET");
             await db.$transaction([

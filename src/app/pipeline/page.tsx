@@ -60,9 +60,15 @@ function DealCard({ deal, isDragging, onClick }: { deal: Deal; isDragging?: bool
                 >
                     {deal.viabilityScore ?? "--"}
                 </span>
-                {isHot && (
+                {(deal.motivationScore ?? 0) >= 80 && (
                     <span className="px-2 py-0.5 rounded text-xs bg-red-500/20 text-red-400">
                         🔥 HOT
+                    </span>
+                )}
+                {deal.notes && deal.notes.length > 0 && (
+                    <span className="relative flex h-2 w-2 ml-1">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400/50 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
                     </span>
                 )}
             </div>
@@ -401,6 +407,12 @@ export default function PipelinePage() {
                 onClose={() => setIsModalOpen(false)}
                 onStatusChange={handleStatusChange}
                 onDelete={handleDelete}
+                onDealUpdated={(updatedDeal) => {
+                    setDeals(prev => prev.map(d => d.id === updatedDeal.id ? updatedDeal : d));
+                    if (selectedDeal?.id === updatedDeal.id) {
+                        setSelectedDeal(updatedDeal);
+                    }
+                }}
             />
         </div>
     );

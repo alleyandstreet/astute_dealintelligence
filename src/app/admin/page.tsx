@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import AdminLayout from "@/components/AdminLayout";
-import { Users, Activity, TrendingUp, Building2, BarChart3, PieChart as PieIcon, Zap, HelpCircle } from "lucide-react";
+import { Users, Activity, TrendingUp, Building2, BarChart3, PieChart as PieIcon, Zap, HelpCircle, MessageSquare } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
 export default function AdminDashboard() {
@@ -204,6 +204,7 @@ export default function AdminDashboard() {
                                             { label: "Business Directory", path: "/admin/businesses", icon: Building2, desc: "Global Asset Ledger", color: "green" },
                                             { label: "Scanner Config", path: "/admin/config", icon: Activity, desc: "Subreddits & Keywords", color: "yellow" },
                                             { label: "Support & Intel Hub", path: "/admin/support", icon: HelpCircle, desc: "FAQs, Tips & AI Assistant", color: "indigo" },
+                                            { label: "Chat Control", path: "/admin/chat", icon: MessageSquare, desc: "Moderation & Oversight", color: "pink" },
                                             { label: "Forensic Audit", path: "/admin/logs", icon: Activity, desc: "Deep Activity Tracking", color: "purple" }
                                         ].map((tool, i) => (
                                             <button
