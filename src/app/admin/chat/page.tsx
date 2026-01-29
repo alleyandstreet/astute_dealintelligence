@@ -27,7 +27,7 @@ export default function AdminChatPage() {
     const fetchMessages = async () => {
         setIsLoading(true);
         try {
-            const res = await fetch("/api/team-chat");
+            const res = await fetch("/api/team-chat?view=admin");
             if (res.ok) {
                 const data = await res.json();
                 // Sort by newest first for admin view
@@ -107,52 +107,64 @@ export default function AdminChatPage() {
                             </div>
                         ) : (
                             <AnimatePresence>
-                                {filteredMessages.map((msg) => (
-                                    <motion.div
-                                        key={msg.id}
-                                        layout
-                                        initial={{ opacity: 0, y: 10 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        exit={{ opacity: 0, scale: 0.95 }}
-                                        className="group bg-slate-900/40 hover:bg-slate-900/60 border border-slate-800/50 hover:border-slate-700 rounded-2xl p-4 transition-all flex items-start gap-4"
-                                    >
-                                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center border border-slate-700 text-sm font-bold text-slate-400">
-                                            {msg.sender.substring(0, 2).toUpperCase()}
-                                        </div>
+                                {filteredMessages.map((msg) => {
+                                    // Check if message is hidden (deleted for someone/everyone)
+                                    // In admin view, we might want to know if it's "deleted" for anyone
+                                    const isHidden = (msg as any).deletedFor && (msg as any).deletedFor.length > 0;
 
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <span className="text-sm font-bold text-white">{msg.sender}</span>
-                                                <span className="text-xs text-slate-500">{new Date(msg.createdAt).toLocaleString()}</span>
+                                    return (
+                                        <motion.div
+                                            key={msg.id}
+                                            layout
+                                            initial={{ opacity: 0, y: 10 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            exit={{ opacity: 0, scale: 0.95 }}
+                                            className={`group bg-slate-900/40 hover:bg-slate-900/60 border ${isHidden ? 'border-red-900/30 bg-red-900/10' : 'border-slate-800/50'} hover:border-slate-700 rounded-2xl p-4 transition-all flex items-start gap-4`}
+                                        >
+                                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center border border-slate-700 text-sm font-bold text-slate-400">
+                                                {msg.sender.substring(0, 2).toUpperCase()}
                                             </div>
 
-                                            {msg.content && (
-                                                <p className="text-slate-300 text-sm leading-relaxed break-words">{msg.content}</p>
-                                            )}
-
-                                            {msg.attachment && msg.attachmentType === 'image' && (
-                                                <div className="mt-3 relative w-fit group/image">
-                                                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover/image:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
-                                                        <ImageIcon className="text-white w-6 h-6" />
-                                                    </div>
-                                                    <img
-                                                        src={msg.attachment}
-                                                        alt="Attachment"
-                                                        className="h-32 w-auto rounded-lg border border-slate-700 object-cover"
-                                                    />
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <span className="text-sm font-bold text-white">{msg.sender}</span>
+                                                    <span className="text-xs text-slate-500">{new Date(msg.createdAt).toLocaleString()}</span>
+                                                    {isHidden && (
+                                                        <span className="ml-2 px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 text-[10px] uppercase font-bold border border-red-500/20 flex items-center gap-1">
+                                                            <AlertCircle className="w-3 h-3" />
+                                                            Hidden
+                                                        </span>
+                                                    )}
                                                 </div>
-                                            )}
-                                        </div>
 
-                                        <button
-                                            onClick={() => handleDelete(msg.id)}
-                                            className="p-2 text-slate-600 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
-                                            title="Delete Message"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
-                                    </motion.div>
-                                ))}
+                                                {msg.content && (
+                                                    <p className="text-slate-300 text-sm leading-relaxed break-words">{msg.content}</p>
+                                                )}
+
+                                                {msg.attachment && msg.attachmentType === 'image' && (
+                                                    <div className="mt-3 relative w-fit group/image">
+                                                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover/image:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
+                                                            <ImageIcon className="text-white w-6 h-6" />
+                                                        </div>
+                                                        <img
+                                                            src={msg.attachment}
+                                                            alt="Attachment"
+                                                            className="h-32 w-auto rounded-lg border border-slate-700 object-cover"
+                                                        />
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            <button
+                                                onClick={() => handleDelete(msg.id)}
+                                                className="p-2 text-slate-600 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+                                                title="Delete Message"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </motion.div>
+                                    );
+                                })}
                             </AnimatePresence>
                         )}
                     </div>

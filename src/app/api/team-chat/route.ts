@@ -4,7 +4,7 @@ import { db as prisma } from "@/lib/db";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
-export async function GET() {
+export async function GET(req: Request) {
     try {
         const session = await getServerSession(authOptions);
         const userEmail = session?.user?.email;
@@ -18,10 +18,17 @@ export async function GET() {
             take: 50,
         });
 
+        // Check if admin view is requested
+        const { searchParams } = new URL(req.url); // Note: req.url might need construction if not full URL, but in Next.js req.url is usually good or we use req.nextUrl
+        // Safer way in App Router route handlers for query params:
+        const url = new URL(req.url);
+        const isAdminView = url.searchParams.get("view") === "admin";
+
         // Filter in memory for MVP (deletedFor is string[])
-        const visibleMessages = messages.filter(msg =>
-            !userEmail || !msg.deletedFor.includes(userEmail)
-        );
+        // If admin view, return ALL messages. If not, filter out deleted ones.
+        const visibleMessages = isAdminView
+            ? messages
+            : messages.filter(msg => !userEmail || !msg.deletedFor.includes(userEmail));
 
         return NextResponse.json(visibleMessages);
     } catch (error) {
