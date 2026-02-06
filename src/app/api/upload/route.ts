@@ -19,27 +19,17 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
         }
 
-        const buffer = Buffer.from(await file.arrayBuffer());
+        // Convert to Base64
+        const arrayBuffer = await file.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        const base64 = buffer.toString("base64");
+        const mimeType = file.type;
+        const dataUri = `data:${mimeType};base64,${base64}`;
 
-        // Ensure upload directory exists
-        const uploadDir = path.join(process.cwd(), "public/uploads");
-        try {
-            await mkdir(uploadDir, { recursive: true });
-        } catch (e) {
-            // Ignore error if directory exists
-        }
-
-        // Generate unique filename
-        const filename = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`;
-        const filePath = path.join(uploadDir, filename);
-
-        // Write file
-        await writeFile(filePath, buffer);
-
-        // Return public URL
-        const publicUrl = `/uploads/${filename}`;
-
-        return NextResponse.json({ url: publicUrl, filename });
+        // Return Data URI as the URL
+        // In a production app with heavy usage, this should be S3/Blob storage.
+        // For this fix, we are storing the image data directly in the URL field.
+        return NextResponse.json({ url: dataUri, filename: file.name });
 
     } catch (error) {
         console.error("Upload error:", error);
