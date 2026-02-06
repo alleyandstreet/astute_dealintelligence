@@ -70,6 +70,12 @@ function AnalyticsContent() {
         { name: "Low (<50)", value: filteredDeals.filter((d) => (d.viabilityScore ?? 0) < 50).length },
     ];
 
+    const PLATFORMS = [
+        { id: "all", label: "All Platforms" },
+        { id: "reddit", label: "Reddit" },
+        { id: "producthunt", label: "Product Hunt" },
+        { id: "indiehustle", label: "IndieHustle" },
+    ];
     const statusData = [
         { name: "New", value: filteredDeals.filter((d) => d.status === "new_leads").length },
         { name: "Qualified", value: filteredDeals.filter((d) => d.status === "qualified").length },
@@ -118,20 +124,18 @@ function AnalyticsContent() {
             {/* Header */}
             <div className="mb-8">
                 <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">
-                    {sourceParam === 'producthunt'
-                        ? 'ProductHunt Analytics'
-                        : sourceParam === 'indiehustle'
-                            ? 'IndieHustle Analytics'
-                            : sourceParam === 'reddit'
-                                ? 'Reddit Analytics'
-                                : 'Unified Analytics'}
+                    {sourceParam === 'producthunt' ? 'ProductHunt Analytics' :
+                        sourceParam === 'indiehustle' ? 'IndieHustle Analytics' :
+                            sourceParam === 'indiehackers' ? 'Indie Hackers Analytics' :
+                                sourceParam === 'reddit' ? 'Reddit Analytics' :
+                                    'Unified Analytics'}
                 </h1>
                 <p className="text-sm sm:text-base text-[var(--text-muted)]">
-                    {sourceParam === 'producthunt'
-                        ? 'Deep dive into ProductHunt launch metrics and trends.'
-                        : sourceParam === 'indiehustle'
-                            ? 'Insights from IndieHustle newsletters and deal flow.'
-                            : 'Insights from Reddit conversations and deal flow.'}
+                    {sourceParam === 'producthunt' ? 'Deep dive into ProductHunt launch metrics and trends.' :
+                        sourceParam === 'indiehustle' ? 'Insights from IndieHustle newsletters and deal flow.' :
+                            sourceParam === 'indiehackers' ? 'Insights from Indie Hackers milestones.' :
+                                sourceParam === 'reddit' ? 'Insights from Reddit conversations and deal flow.' :
+                                    'Unified insights across all deal sources.'}
                 </p>
             </div>
 
@@ -265,7 +269,11 @@ function AnalyticsContent() {
 
                 {/* Subreddit Performance */}
                 <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-6">
-                    <h3 className="font-semibold text-white mb-4">Top {sourceParam === 'producthunt' ? 'Makers' : 'Subreddits'}</h3>
+                    <h3 className="font-semibold text-white mb-4">Top {
+                        sourceParam === 'producthunt' ? 'Makers' :
+                            sourceParam === 'reddit' ? 'Subreddits' :
+                                'Sources'
+                    }</h3>
                     {subredditChartData.length > 0 ? (
                         <ResponsiveContainer width="100%" height={250}>
                             <BarChart data={subredditChartData}>

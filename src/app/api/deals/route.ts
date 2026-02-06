@@ -1,8 +1,30 @@
 import { db } from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { logActivity } from "@/lib/activity-logger";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
     try {
+        const { searchParams } = new URL(request.url);
+        const id = searchParams.get("id");
+
+        if (id) {
+            const deal = await db.deal.findUnique({
+                where: { id },
+                include: {
+                    tags: { include: { tag: true } },
+                    notes: true,
+                },
+            });
+
+            if (!deal) {
+                return NextResponse.json({ error: "Deal not found" }, { status: 404 });
+            }
+
+            return NextResponse.json(deal);
+        }
+
         const deals = await db.deal.findMany({
             orderBy: { createdAt: "desc" },
             include: {
@@ -56,6 +78,16 @@ export async function POST(request: NextRequest) {
             },
         });
 
+        const session = await getServerSession(authOptions);
+        if (session?.user) {
+            await logActivity({
+                userId: (session.user as any).id,
+                action: "deal_created",
+                details: `Created deal: ${deal.name}`,
+                ipAddress: request.headers.get("x-forwarded-for") || undefined,
+            });
+        }
+
         return NextResponse.json(deal, { status: 201 });
     } catch (error) {
         console.error("Error creating deal:", error);
@@ -76,6 +108,17 @@ export async function PATCH(request: NextRequest) {
             where: { id },
             data,
         });
+
+        const session = await getServerSession(authOptions);
+        if (session?.user) {
+            const updates = Object.keys(data).join(", ");
+            await logActivity({
+                userId: (session.user as any).id,
+                action: "deal_updated",
+                details: `Updated deal ${deal.name} (ID: ${id}). Fields: ${updates}`,
+                ipAddress: request.headers.get("x-forwarded-for") || undefined,
+            });
+        }
 
         return NextResponse.json(deal);
     } catch (error) {
@@ -119,7 +162,18 @@ export async function DELETE(request: NextRequest) {
                 db.outreach.deleteMany({}),
                 db.dealTag.deleteMany({}),
                 db.deal.deleteMany({}),
+                db.deal.deleteMany({}),
             ]);
+
+            const session = await getServerSession(authOptions);
+            if (session?.user) {
+                await logActivity({
+                    userId: (session.user as any).id,
+                    action: "deal_deleted",
+                    details: "PERFORMED TOTAL SYSTEM COMPLETE RESET",
+                    ipAddress: request.headers.get("x-forwarded-for") || undefined,
+                });
+            }
             console.log("TOTAL RESET successful");
             return NextResponse.json({ success: true, message: "All data reset" });
         }
@@ -128,9 +182,27 @@ export async function DELETE(request: NextRequest) {
             return NextResponse.json({ error: "Deal ID required" }, { status: 400 });
         }
 
-        await db.deal.delete({
-            where: { id },
-        });
+        try {
+            await db.deal.delete({
+                where: { id },
+            });
+
+            const session = await getServerSession(authOptions);
+            if (session?.user) {
+                await logActivity({
+                    userId: (session.user as any).id,
+                    action: "deal_deleted",
+                    details: `Deleted deal ID: ${id}`,
+                    ipAddress: request.headers.get("x-forwarded-for") || undefined,
+                });
+            }
+        } catch (error: any) {
+            // If record to delete is not found, we consider it a success (idempotent)
+            if (error.code === "P2025") {
+                return NextResponse.json({ success: true, message: "Deal already deleted" });
+            }
+            throw error;
+        }
 
         return NextResponse.json({ success: true });
     } catch (error) {

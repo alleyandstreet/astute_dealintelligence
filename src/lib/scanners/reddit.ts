@@ -141,7 +141,7 @@ export async function scanReddit(
 
             // Create deal
             try {
-                await db.deal.create({
+                const deal = await db.deal.create({
                     data: {
                         name: post.title.slice(0, 200),
                         description: post.content.slice(0, 2000),
@@ -175,6 +175,22 @@ export async function scanReddit(
                     type: "log",
                     message: `${emoji} NEW DEAL: "${post.title.slice(0, 40)}..." | Viability: ${scores.viabilityScore}`
                 });
+
+                // Trigger contact enrichment if URL is present
+                // We extract URL from content if the post.url is just a reddit link
+                let targetUrl = post.url;
+                if (targetUrl.includes("reddit.com")) {
+                    const urlMatch = post.content.match(/https?:\/\/[^\s]+/);
+                    if (urlMatch) targetUrl = urlMatch[0];
+                }
+
+                if (targetUrl && !targetUrl.includes("reddit.com")) {
+                    // Fire and forget enrichment
+                    import("@/lib/contact-scraper").then(({ enrichDeal }) => {
+                        enrichDeal(deal.id, targetUrl);
+                    }).catch(err => console.error("Enrichment import failed", err));
+                }
+
             } catch (dbError) {
                 send({ type: "log", message: `❌ Failed to save deal: ${dbError}` });
                 console.error("Database error:", dbError);

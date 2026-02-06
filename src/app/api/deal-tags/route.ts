@@ -1,5 +1,8 @@
 import { db } from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { logActivity } from "@/lib/activity-logger";
 
 // POST - Add tag to deal
 export async function POST(request: NextRequest) {
@@ -25,6 +28,16 @@ export async function POST(request: NextRequest) {
             include: { tag: true },
         });
 
+        const session = await getServerSession(authOptions);
+        if (session?.user) {
+            await logActivity({
+                userId: (session.user as any).id,
+                action: "tag_added",
+                details: `Added tag '${dealTag.tag.name}' to deal ID: ${dealId}`,
+                ipAddress: request.headers.get("x-forwarded-for") || undefined,
+            });
+        }
+
         return NextResponse.json(dealTag, { status: 201 });
     } catch (error) {
         console.error("Error adding tag to deal:", error);
@@ -46,6 +59,16 @@ export async function DELETE(request: NextRequest) {
         await db.dealTag.deleteMany({
             where: { dealId, tagId },
         });
+
+        const session = await getServerSession(authOptions);
+        if (session?.user) {
+            await logActivity({
+                userId: (session.user as any).id,
+                action: "tag_removed",
+                details: `Removed tag ID ${tagId} from deal ID ${dealId}`,
+                ipAddress: request.headers.get("x-forwarded-for") || undefined,
+            });
+        }
 
         return NextResponse.json({ success: true });
     } catch (error) {

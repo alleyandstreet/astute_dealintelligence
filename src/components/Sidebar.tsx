@@ -19,6 +19,7 @@ import {
     ChevronDown,
     ChevronRight,
     Target,
+    Calendar,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import { AstuteLogo } from "@/components/AstuteLogo";
@@ -31,7 +32,8 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-    { href: "/", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/", label: "Hub", icon: Layers },
+    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
 
     {
         label: "Reddit",
@@ -60,7 +62,20 @@ const navItems: NavItem[] = [
         ]
     },
 
+
+    {
+        label: "Indie Hackers",
+        icon: Briefcase,
+        children: [
+            { href: "/sources?source=indiehackers", label: "Scanner", icon: Search },
+            { href: "/analytics?source=indiehackers", label: "Analytics", icon: BarChart3 },
+        ]
+    },
+
+
+
     { href: "/deals", label: "Deals", icon: Briefcase },
+    { href: "/calendar", label: "Content Calendar", icon: Calendar },
     { href: "/pipeline", label: "Pipeline", icon: Kanban },
     { href: "/team-chat", label: "Team Chat", icon: MessageCircle },
     { href: "/support", label: "Support", icon: HelpCircle },
@@ -151,8 +166,9 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     const { data: session } = useSession();
     const pathname = usePathname();
     const isLoginPage = pathname === "/login";
+    const isHubPage = pathname === "/";
 
-    if (isLoginPage) return null;
+    if (isLoginPage || isHubPage) return null;
 
     return (
         <>
@@ -198,17 +214,6 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                         />
                     ))}
 
-                    {/* Secure Super Admin Entry Pointer */}
-                    {session?.user && (session.user as any).role === "super_admin" && (
-                        <Link
-                            href="/admin"
-                            onClick={onClose}
-                            className="flex items-center gap-3 px-4 py-3 rounded-lg text-amber-400 hover:bg-amber-400/10 transition-all border border-transparent hover:border-amber-400/20 mt-4 group"
-                        >
-                            <ShieldAlert className="w-5 h-5 group-hover:animate-pulse" />
-                            <span className="font-bold">Admin Control</span>
-                        </Link>
-                    )}
                 </nav>
 
                 {/* Bottom section */}

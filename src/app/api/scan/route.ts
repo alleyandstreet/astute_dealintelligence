@@ -1,7 +1,11 @@
 import { scanReddit } from "@/lib/scanners/reddit";
 import { scanProductHunt } from "@/lib/scanners/producthunt";
 import { scanIndieHustle } from "@/lib/scanners/indiehustle";
+import { scanIndieHackers } from "@/lib/scanners/indiehackers";
 import { NextRequest } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { logActivity } from "@/lib/activity-logger";
 
 export async function POST(request: NextRequest) {
     const encoder = new TextEncoder();
@@ -20,10 +24,21 @@ export async function POST(request: NextRequest) {
                 const platform: string = body.platform || "reddit";
                 const minRevenue: number = body.minRevenue ? parseInt(body.minRevenue) : 0;
 
+                const session = await getServerSession(authOptions);
+                if (session?.user) {
+                    await logActivity({
+                        userId: (session.user as any).id,
+                        action: "scan_started",
+                        details: `Started ${platform} scan. Keywords: ${keywords.join(", ")}`,
+                    });
+                }
+
                 if (platform === "producthunt") {
                     await scanProductHunt(subreddits, keywords, send);
                 } else if (platform === "indiehustle") {
                     await scanIndieHustle(subreddits, keywords, minRevenue, send);
+                } else if (platform === "indiehackers") {
+                    await scanIndieHackers(subreddits, keywords, send);
                 } else {
                     await scanReddit(subreddits, keywords, send);
                 }
@@ -31,6 +46,14 @@ export async function POST(request: NextRequest) {
             } catch (error) {
                 send({ type: "error", message: `Scan failed: ${error}` });
             } finally {
+                const session = await getServerSession(authOptions);
+                if (session?.user) {
+                    await logActivity({
+                        userId: (session.user as any).id,
+                        action: "scan_completed",
+                        details: `Completed scan request`,
+                    });
+                }
                 controller.close();
             }
         },

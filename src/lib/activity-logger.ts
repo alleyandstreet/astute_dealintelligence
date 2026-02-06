@@ -10,9 +10,15 @@ export type ActivityAction =
     | "scan_completed"
     | "note_added"
     | "tag_added"
+    | "tag_removed"
+    | "tag_created"
+    | "tag_deleted"
+    | "note_deleted"
     | "user_created"
     | "user_updated"
-    | "user_deleted";
+    | "user_deleted"
+    | "copy_caption"
+    | "copy_outreach";
 
 interface LogActivityParams {
     userId: string;

@@ -14,7 +14,8 @@ import {
     Sparkles,
     DollarSign,
     Target,
-    Zap
+    Zap,
+    Terminal
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -127,12 +128,19 @@ export default function DealCard({ deal, onClick, onDelete, selected = false, on
                     <div className="flex gap-2 items-center">
                         <span className={`px-2 py-0.5 rounded text-[10px] uppercase tracking-wider font-semibold border transition-colors flex items-center gap-1 ${deal.source === 'ProductHunt'
                             ? 'bg-orange-500/10 text-orange-500 border-orange-500/20'
-                            : deal.source === 'indiehustle'
+                            : (deal.source === 'indiehustle' || deal.source === 'IndieHustle')
                                 ? 'bg-purple-500/10 text-purple-500 border-purple-500/20'
-                                : 'bg-red-500/10 text-red-500 border-red-500/20'
+                                : (deal.source === 'indiehackers' || deal.source === 'IndieHackers')
+                                    ? 'bg-blue-500/10 text-blue-500 border-blue-500/20'
+                                    : 'bg-red-500/10 text-red-500 border-red-500/20'
                             }`}>
-                            {deal.source === 'ProductHunt' ? <Target className="w-3 h-3" /> : deal.source === 'indiehustle' ? <Zap className="w-3 h-3" /> : <MessageSquare className="w-3 h-3" />}
-                            {deal.source === 'ProductHunt' ? 'ProductHunt' : deal.source === 'indiehustle' ? 'IndieHustle' : 'Reddit'}
+                            {deal.source === 'ProductHunt' ? <Target className="w-3 h-3" /> :
+                                (deal.source === 'indiehustle' || deal.source === 'IndieHustle') ? <Zap className="w-3 h-3" /> :
+                                    (deal.source === 'indiehackers' || deal.source === 'IndieHackers') ? <MessageSquare className="w-3 h-3" /> :
+                                        <MessageSquare className="w-3 h-3" />}
+                            {deal.source === 'ProductHunt' ? 'ProductHunt' :
+                                (deal.source === 'indiehustle' || deal.source === 'IndieHustle') ? 'IndieHustle' :
+                                    (deal.source === 'indiehackers' || deal.source === 'IndieHackers') ? 'Indie Hackers' : 'Reddit'}
                         </span>
 
                         {deal.industry && (

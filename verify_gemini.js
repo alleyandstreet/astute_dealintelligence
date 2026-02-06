@@ -1,0 +1,24 @@
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+
+async function testModel() {
+    try {
+        console.log("Testing gemini-flash-latest...");
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+        const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
+        const result = await model.generateContent("Say hello");
+        console.log("Success:", result.response.text());
+    } catch (error) {
+        console.error("Error with gemini-flash-latest:", error.message);
+
+        try {
+            console.log("Testing gemini-1.5-flash...");
+            const model2 = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+            const result2 = await model2.generateContent("Say hello");
+            console.log("Success with gemini-1.5-flash:", result2.response.text());
+        } catch (e2) {
+            console.error("Error with gemini-1.5-flash:", e2.message);
+        }
+    }
+}
+
+testModel();

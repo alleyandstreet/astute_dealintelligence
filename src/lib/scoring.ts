@@ -235,7 +235,9 @@ const RELEVANCE_KEYWORDS = [
 const IRRELEVANCE_INDICATORS = [
     "mental model", "lessons learned", "advice", "thoughts on", "opinion",
     "guide", "how to", "mistakes to avoid", "my story", "my journey",
-    "what is", "why you should", "top tips", "best way to", "should not be"
+    "what is", "why you should", "top tips", "best way to", "should not be",
+    "year in review", "recapped", "recap", "wins", "hard way", "milestones",
+    "reflections", "retrospective"
 ];
 
 // Keywords that strongly indicate a commercial deal/transaction

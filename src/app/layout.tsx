@@ -8,6 +8,7 @@ export const metadata: Metadata = {
 };
 
 import { AuthProvider } from "@/components/AuthProvider";
+import { ContentStateProvider } from "@/components/ContentStateProvider";
 import { LayoutContent } from "@/components/LayoutContent";
 import TeamChat from "@/components/TeamChat";
 
@@ -21,10 +22,12 @@ export default function RootLayout({
     <html lang="en">
       <body className="antialiased">
         <AuthProvider>
-          <LayoutContent>
-            {children}
-            <TeamChat />
-          </LayoutContent>
+          <ContentStateProvider>
+            <LayoutContent>
+              {children}
+              <TeamChat />
+            </LayoutContent>
+          </ContentStateProvider>
         </AuthProvider>
         <Toaster
           position="bottom-right"

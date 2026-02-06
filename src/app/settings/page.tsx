@@ -318,7 +318,7 @@ export default function SettingsPage() {
 
             {/* Version Info */}
             <div className="mt-8 text-center text-sm text-[var(--text-dim)]">
-                <p>Astute PE Intelligence Platform v2.0</p>
+                <p>Astute PE Intelligence Platform v3.0.0</p>
                 <p>Built with Next.js, Prisma, and ❤️</p>
             </div>
         </div>

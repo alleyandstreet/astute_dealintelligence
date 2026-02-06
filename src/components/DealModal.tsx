@@ -22,10 +22,13 @@ import {
     Trash2,
     Loader2,
     RotateCcw,
+    ChevronLeft,
+    ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import TagManager from "./TagManager";
 import { STATUS_OPTIONS } from "@/lib/constants";
+import { InvestmentMemoView } from "./InvestmentMemoView";
 
 import { Deal, Note } from "@/types";
 
@@ -37,6 +40,9 @@ interface DealModalProps {
     onStatusChange?: (id: string, status: string) => void;
     onDelete?: (id: string) => void;
     onDealUpdated?: (deal: Deal) => void;
+    onNext?: () => void;
+    onPrev?: () => void;
+    initialTab?: "overview" | "analysis" | "outreach" | "notes";
 }
 
 function formatCurrency(value: number | null | undefined): string {
@@ -70,15 +76,23 @@ P.S. Even if now isn't the right time, I'd be glad to stay in touch for whenever
 
 
 
-export default function DealModal({ deal, isOpen, onClose, onStatusChange, onDelete, onDealUpdated }: DealModalProps) {
+export default function DealModal({ deal, isOpen, onClose, onStatusChange, onDelete, onDealUpdated, onNext, onPrev, initialTab = "overview" }: DealModalProps) {
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
         setMounted(true);
     }, []);
     const [copied, setCopied] = useState(false);
-    const [activeTab, setActiveTab] = useState<"overview" | "outreach" | "notes">("overview");
+    const [activeTab, setActiveTab] = useState<"overview" | "analysis" | "outreach" | "notes">("overview");
+
+    useEffect(() => {
+        if (isOpen) {
+            setActiveTab(initialTab);
+        }
+    }, [isOpen, initialTab]);
     const [notes, setNotes] = useState<Note[]>([]);
+    const [memo, setMemo] = useState<any>(null);
+    const [isGeneratingMemo, setIsGeneratingMemo] = useState(false);
     const [newNote, setNewNote] = useState("");
     const [isLoadingNotes, setIsLoadingNotes] = useState(false);
     const [isSavingNote, setIsSavingNote] = useState(false);
@@ -87,9 +101,61 @@ export default function DealModal({ deal, isOpen, onClose, onStatusChange, onDel
     const [dealTags, setDealTags] = useState<any[]>([]);
     const [aiOutreachMessage, setAiOutreachMessage] = useState<string>("");
     const [isGeneratingOutreach, setIsGeneratingOutreach] = useState(false);
+    const [isEnriching, setIsEnriching] = useState(false);
+
+
+
+    const handleGenerateMemo = async () => {
+        if (!deal) return;
+        setIsGeneratingMemo(true);
+        try {
+            const res = await fetch("/api/deals/deep-dive", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ dealId: deal.id }),
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                setMemo(data);
+                toast.success("Investment Memo Generated");
+            } else {
+                toast.error("Failed to generate memo");
+            }
+        } catch (error) {
+            console.error("Memo gen error:", error);
+            toast.error("Failed to generate memo");
+        } finally {
+            setIsGeneratingMemo(false);
+        }
+    };
+
+    const handleEnrich = async () => {
+        if (!deal) return;
+        setIsEnriching(true);
+        try {
+            const res = await fetch("/api/enrich", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ dealId: deal.id }),
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                toast.success(data.message);
+            } else {
+                toast.error(data.message || "Enrichment failed");
+            }
+        } catch {
+            toast.error("Failed to start enrichment");
+        } finally {
+            setIsEnriching(false);
+        }
+    };
 
     useEffect(() => {
         if (deal && isOpen) {
+            setMemo(null); // Reset memo for new deal
+            setAiOutreachMessage(""); // Reset outreach message
             fetchNotes();
             fetchDealTags();
         }
@@ -98,7 +164,7 @@ export default function DealModal({ deal, isOpen, onClose, onStatusChange, onDel
     const fetchDealTags = async () => {
         if (!deal) return;
         try {
-            const res = await fetch(`/api/deals/${deal.id}`);
+            const res = await fetch(`/api/deals?id=${deal.id}`);
             if (res.ok) {
                 const data = await res.json();
                 setDealTags(data.tags || []);
@@ -196,6 +262,29 @@ export default function DealModal({ deal, isOpen, onClose, onStatusChange, onDel
         }
     }, [isOpen, activeTab, deal?.id]);
 
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (!isOpen || !deal) return;
+
+            // Don't navigate if user is typing in an input
+            if (
+                document.activeElement?.tagName === "INPUT" ||
+                document.activeElement?.tagName === "TEXTAREA"
+            ) {
+                return;
+            }
+
+            if (e.key === "ArrowLeft" && onPrev) {
+                onPrev();
+            } else if (e.key === "ArrowRight" && onNext) {
+                onNext();
+            }
+        };
+
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [isOpen, deal, onNext, onPrev]);
+
     if (!deal || !mounted) return null;
 
     const riskFlags: string[] = deal.riskFlags ? JSON.parse(deal.riskFlags) : [];
@@ -207,6 +296,17 @@ export default function DealModal({ deal, isOpen, onClose, onStatusChange, onDel
         await navigator.clipboard.writeText(displayedMessage);
         setCopied(true);
         toast.success("Message copied to clipboard!");
+
+        // Log activity
+        fetch("/api/log-activity", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                action: "copy_outreach",
+                details: `Copied outreach message for deal: ${deal.name} (ID: ${deal.id})`
+            })
+        });
+
         setTimeout(() => setCopied(false), 2000);
     };
 
@@ -226,8 +326,10 @@ export default function DealModal({ deal, isOpen, onClose, onStatusChange, onDel
         }
     };
 
+
+
     const handleDeleteDeal = async () => {
-        if (!deal) return;
+        if (!deal || isDeletingDeal) return;
 
         if (!isConfirmingDelete) {
             setIsConfirmingDelete(true);
@@ -273,6 +375,26 @@ export default function DealModal({ deal, isOpen, onClose, onStatusChange, onDel
                         className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[100]"
                     />
 
+                    {/* Navigation Buttons (Desktop) */}
+                    {onPrev && (
+                        <button
+                            onClick={(e) => { e.stopPropagation(); onPrev(); }}
+                            className="fixed left-4 lg:left-8 top-1/2 -translate-y-1/2 z-[101] p-2 rounded-full bg-black/20 hover:bg-black/60 text-white/40 hover:text-white backdrop-blur-sm border border-white/5 hover:border-white/20 transition-all hidden md:flex items-center justify-center group"
+                            title="Previous Deal (Left Arrow)"
+                        >
+                            <ChevronLeft className="w-6 h-6 group-hover:-translate-x-0.5 transition-transform" />
+                        </button>
+                    )}
+                    {onNext && (
+                        <button
+                            onClick={(e) => { e.stopPropagation(); onNext(); }}
+                            className="fixed right-4 lg:right-8 top-1/2 -translate-y-1/2 z-[101] p-2 rounded-full bg-black/20 hover:bg-black/60 text-white/40 hover:text-white backdrop-blur-sm border border-white/5 hover:border-white/20 transition-all hidden md:flex items-center justify-center group"
+                            title="Next Deal (Right Arrow)"
+                        >
+                            <ChevronRight className="w-6 h-6 group-hover:translate-x-0.5 transition-transform" />
+                        </button>
+                    )}
+
                     {/* Modal */}
                     <motion.div
                         initial={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -308,18 +430,42 @@ export default function DealModal({ deal, isOpen, onClose, onStatusChange, onDel
                                 <h2 className="text-xl sm:text-2xl font-bold text-white truncate max-w-full">{deal.name}</h2>
                                 <p className="text-xs text-[var(--text-muted)] mt-1">Source: <span className="text-cyan-400">{deal.sourceName}</span></p>
                             </div>
-                            <button
-                                onClick={onClose}
-                                className="absolute top-4 right-4 sm:static p-2 rounded-lg hover:bg-[var(--background)] text-[var(--text-muted)] hover:text-white transition-colors"
-                            >
-                                <X className="w-5 h-5" />
-                            </button>
+
+                            <div className="flex items-center gap-2 absolute top-4 right-4 sm:static">
+                                {/* Mobile Navigation */}
+                                <div className="flex sm:hidden mr-2 bg-[var(--background)] rounded-lg border border-[var(--border)]">
+                                    <button
+                                        onClick={onPrev}
+                                        disabled={!onPrev}
+                                        className="p-2 text-[var(--text-muted)] disabled:opacity-30"
+                                    >
+                                        <ChevronLeft className="w-5 h-5" />
+                                    </button>
+                                    <div className="w-[1px] bg-[var(--border)]" />
+                                    <button
+                                        onClick={onNext}
+                                        disabled={!onNext}
+                                        className="p-2 text-[var(--text-muted)] disabled:opacity-30"
+                                    >
+                                        <ChevronRight className="w-5 h-5" />
+                                    </button>
+                                </div>
+
+                                <button
+                                    onClick={onClose}
+                                    className="p-2 rounded-lg hover:bg-[var(--background)] text-[var(--text-muted)] hover:text-white transition-colors"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
                         </div>
 
                         {/* Tabs */}
                         <div className="flex overflow-x-auto no-scrollbar gap-1 px-4 sm:px-6 pt-4 border-b border-[var(--border)] scroll-smooth bg-[#121214]/50">
+
                             {[
                                 { id: "overview", label: "Overview", icon: null },
+                                { id: "analysis", label: "Analysis", icon: Sparkles },
                                 { id: "notes", label: `Notes ${notes.length > 0 ? `(${notes.length})` : ""}`, icon: StickyNote },
                                 { id: "outreach", label: "Contact", icon: MessageSquare },
                             ].map((tab) => {
@@ -360,7 +506,27 @@ export default function DealModal({ deal, isOpen, onClose, onStatusChange, onDel
                                         {/* Description */}
                                         {deal.description && (
                                             <div>
-                                                <h3 className="font-semibold text-white mb-3">Original Post</h3>
+                                                <div className="flex items-center justify-between mb-3">
+                                                    <h3 className="font-semibold text-white">Original Post</h3>
+                                                    <button
+                                                        onClick={async () => {
+                                                            await navigator.clipboard.writeText(deal.description || "");
+                                                            toast.success("Caption copied!");
+                                                            fetch("/api/log-activity", {
+                                                                method: "POST",
+                                                                headers: { "Content-Type": "application/json" },
+                                                                body: JSON.stringify({
+                                                                    action: "copy_caption",
+                                                                    details: `Copied original caption for deal: ${deal.name} (ID: ${deal.id})`
+                                                                })
+                                                            });
+                                                        }}
+                                                        className="p-1.5 rounded-lg hover:bg-white/10 text-[var(--text-muted)] hover:text-white transition-colors"
+                                                        title="Copy Caption"
+                                                    >
+                                                        <Copy className="w-4 h-4" />
+                                                    </button>
+                                                </div>
                                                 <div className="bg-[var(--background)] rounded-xl p-5 max-h-64 overflow-y-auto">
                                                     <p className="text-[var(--text-muted)] whitespace-pre-wrap text-sm leading-relaxed">
                                                         {deal.description}
@@ -615,6 +781,41 @@ export default function DealModal({ deal, isOpen, onClose, onStatusChange, onDel
                                         </div>
                                     </div>
                                 </div>
+                            ) : activeTab === "analysis" ? (
+                                <div className="max-w-4xl mx-auto">
+                                    {!memo ? (
+                                        <div className="flex flex-col items-center justify-center py-16 space-y-4">
+                                            <div className="w-20 h-20 bg-cyan-500/10 rounded-full flex items-center justify-center border border-cyan-500/20">
+                                                <Sparkles className="w-8 h-8 text-cyan-400" />
+                                            </div>
+                                            <div className="text-center space-y-2 max-w-md">
+                                                <h3 className="text-xl font-bold text-white">Deep Dive Analysis</h3>
+                                                <p className="text-[var(--text-muted)]">
+                                                    Generate a comprehensive investment memo covering Market Sizing, SWOT Analysis, Risk Assessment, and Strategic Verdict.
+                                                </p>
+                                            </div>
+                                            <button
+                                                onClick={handleGenerateMemo}
+                                                disabled={isGeneratingMemo}
+                                                className="btn-primary flex items-center gap-2 mt-4 px-6 py-2"
+                                            >
+                                                {isGeneratingMemo ? (
+                                                    <>
+                                                        <Loader2 className="w-5 h-5 animate-spin" />
+                                                        Analyzing Deal Context...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Sparkles className="w-5 h-5" />
+                                                        Generate Deep Dive
+                                                    </>
+                                                )}
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <InvestmentMemoView memo={memo} />
+                                    )}
+                                </div>
                             ) : activeTab === "notes" ? (
                                 /* Notes Tab */
                                 <div className="max-w-2xl mx-auto">
@@ -714,22 +915,32 @@ export default function DealModal({ deal, isOpen, onClose, onStatusChange, onDel
                                         <div className="bg-[var(--background)] rounded-xl p-6 font-mono text-sm text-[var(--text)] leading-relaxed whitespace-pre-wrap min-h-[200px]">
                                             {displayedMessage}
                                         </div>
-                                        <button
-                                            onClick={copyMessage}
-                                            className="absolute top-4 right-4 flex items-center gap-2 px-4 py-2 rounded-lg bg-cyan-500 hover:bg-cyan-600 text-white font-medium transition-colors"
-                                        >
-                                            {copied ? (
-                                                <>
-                                                    <Check className="w-4 h-4" />
-                                                    Copied!
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <Copy className="w-4 h-4" />
-                                                    Copy Message
-                                                </>
-                                            )}
-                                        </button>
+                                        <div className="absolute top-4 right-4 flex gap-2">
+                                            <button
+                                                onClick={handleEnrich}
+                                                disabled={isEnriching}
+                                                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/20 transition-colors text-sm font-medium"
+                                            >
+                                                {isEnriching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                                                Enrich Contacts
+                                            </button>
+                                            <button
+                                                onClick={copyMessage}
+                                                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-cyan-500 hover:bg-cyan-600 text-white font-medium transition-colors"
+                                            >
+                                                {copied ? (
+                                                    <>
+                                                        <Check className="w-4 h-4" />
+                                                        Copied!
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Copy className="w-4 h-4" />
+                                                        Copy Message
+                                                    </>
+                                                )}
+                                            </button>
+                                        </div>
                                     </div>
 
                                     <div className="mt-6 flex gap-4">
@@ -771,6 +982,6 @@ export default function DealModal({ deal, isOpen, onClose, onStatusChange, onDel
                     </motion.div>
                 </>
             )}
-        </AnimatePresence>
+        </AnimatePresence >
         , document.body);
 }

@@ -1,5 +1,8 @@
 import { db } from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { logActivity } from "@/lib/activity-logger";
 
 // GET all tags
 export async function GET() {
@@ -46,6 +49,16 @@ export async function POST(request: NextRequest) {
             },
         });
 
+        const session = await getServerSession(authOptions);
+        if (session?.user) {
+            await logActivity({
+                userId: (session.user as any).id,
+                action: "tag_created",
+                details: `Created new global tag: ${name}`,
+                ipAddress: request.headers.get("x-forwarded-for") || undefined,
+            });
+        }
+
         return NextResponse.json(tag, { status: 201 });
     } catch (error) {
         console.error("Error creating tag:", error);
@@ -66,6 +79,16 @@ export async function DELETE(request: NextRequest) {
         await db.tag.delete({
             where: { id },
         });
+
+        const session = await getServerSession(authOptions);
+        if (session?.user) {
+            await logActivity({
+                userId: (session.user as any).id,
+                action: "tag_deleted",
+                details: `Deleted global tag ID: ${id}`,
+                ipAddress: request.headers.get("x-forwarded-for") || undefined,
+            });
+        }
 
         return NextResponse.json({ success: true });
     } catch (error) {

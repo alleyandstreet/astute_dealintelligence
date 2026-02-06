@@ -20,6 +20,7 @@ model User {
   lastLogin DateTime?
   logs      ActivityLog[]
   businesses Business[]
+  scheduledPosts ScheduledPost[]
 }
 
 model Business {
@@ -151,4 +152,18 @@ model TeamMessage {
   attachmentType String? // image, file, etc.
   editHistory Json? // Array of { content, timestamp }
   deletedFor String[] @default([]) // Array of emails
+}
+
+model ScheduledPost {
+  id           String   @id @default(cuid())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  caption      String
+  hashtags     String[]
+  platform     String   @default("instagram") // platform name (instagram, linkedin, etc.)
+  scheduledFor DateTime
+  status       String   @default("scheduled") // scheduled, posted, failed
+  mediaUrls    String   // JSON stringified array of file paths/URLs
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

@@ -240,6 +240,22 @@ export default function DealsPage() {
         );
     }
 
+    const handleNextDeal = () => {
+        if (!selectedDeal) return;
+        const currentIndex = filteredDeals.findIndex(d => d.id === selectedDeal.id);
+        if (currentIndex !== -1 && currentIndex < filteredDeals.length - 1) {
+            setSelectedDeal(filteredDeals[currentIndex + 1]);
+        }
+    };
+
+    const handlePrevDeal = () => {
+        if (!selectedDeal) return;
+        const currentIndex = filteredDeals.findIndex(d => d.id === selectedDeal.id);
+        if (currentIndex > 0) {
+            setSelectedDeal(filteredDeals[currentIndex - 1]);
+        }
+    };
+
     return (
         <div className="max-w-7xl mx-auto space-y-6">
             {/* Header */}
@@ -339,6 +355,7 @@ export default function DealsPage() {
                     <option value="reddit">Reddit</option>
                     <option value="ProductHunt">Product Hunt</option>
                     <option value="indiehustle">Indie Hustle</option>
+                    <option value="indiehackers">Indie Hackers</option>
                 </select>
 
                 {/* Score filter */}
@@ -395,6 +412,8 @@ export default function DealsPage() {
                         setSelectedDeal(updatedDeal);
                     }
                 }}
+                onNext={filteredDeals.findIndex(d => d.id === selectedDeal?.id) < filteredDeals.length - 1 ? handleNextDeal : undefined}
+                onPrev={filteredDeals.findIndex(d => d.id === selectedDeal?.id) > 0 ? handlePrevDeal : undefined}
             />
         </div>
     );

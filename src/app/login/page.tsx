@@ -210,7 +210,7 @@ export default function LoginPage() {
 
                 <div className="mt-8 flex flex-col items-center gap-4">
                     <p className="text-xs text-[var(--text-muted)] opacity-30 font-mono">
-                        v2.0 • Astute Intelligence Systems
+                        v3.0.0 • Astute Intelligence Systems
                     </p>
                     <div className="flex items-center gap-2 opacity-40 hover:opacity-100 transition-opacity duration-300">
                         <div className="w-6 h-6 rounded-md overflow-hidden border border-white/10">

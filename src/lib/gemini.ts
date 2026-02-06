@@ -2,7 +2,8 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // Gemini client - will use GEMINI_API_KEY from environment
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+const MODEL_NAME = "gemini-flash-latest";
+export const model = genAI.getGenerativeModel({ model: MODEL_NAME });
 
 export interface DealAnalysis {
     business_name: string;
@@ -29,7 +30,14 @@ export interface DealAnalysis {
 
 const ANALYSIS_PROMPT = `You are a private equity analyst evaluating a Reddit post for potential business acquisition opportunities.
 
-Analyze this Reddit post and extract business intelligence. If the post is not about selling a business or doesn't contain relevant information, still provide your best assessment.
+Analyze this Reddit post and extract business intelligence.
+STRICT FILTERING: We are ONLY interested in ESTABLISHED BUSINESSES that are potentially FOR SALE or have clear metrics.
+REJECT IMPACT:
+- "Building in Public" daily/weekly updates -> Score 0
+- "My Journey" / "Year in Review" / "Recap" -> Score 0
+- "How I built this" (Retrospective without current metrics) -> Score 0
+- "Don't give up" posts -> Score 0
+- Ideas without a product -> Score 0
 
 Post Title: "{title}"
 Post Content: "{content}"
@@ -46,9 +54,9 @@ Provide your analysis in this exact JSON format (strict JSON):
     "min": number (in USD),
     "max": number (in USD)
   },
-  "viability_score": number 0-100,
+  "viability_score": number 0-100 (0 if 'journey' or 'motivational' post),
   "motivation_score": number 0-100,
-  "deal_quality": number 0-100,
+  "deal_quality": number 0-100 (CRITICAL: Return 0 if this is just a personal story/milestone post),
   "risk_flags": ["array of identified risks"],
   "seller_signals": ["array of signals suggesting motivation to sell"],
   "contact_info": {
@@ -56,7 +64,7 @@ Provide your analysis in this exact JSON format (strict JSON):
     "website": "domain if mentioned",
     "email": "email if mentioned"
   },
-  "ai_summary": "2-3 sentence investment thesis",
+  "ai_summary": "2-3 sentence investment thesis. If rejected, explain why (e.g. 'Just a journey recap').",
   "business_type": "Primary type: SaaS/E-commerce/Service/Content/Agency"
 }
 
@@ -391,6 +399,7 @@ export async function analyzeIndieHustleListing(
         //    return null;
         // }
 
+
         console.log(`✅ Analysis passed quality check (${analysis.deal_quality}/100) (Threshold disabled to capture all)\n`);
         return analysis;
     } catch (error) {
@@ -401,4 +410,86 @@ export async function analyzeIndieHustleListing(
         }
         return null;
     }
+}
+
+
+// ==========================================
+// INDIE HACKERS ANALYSIS
+// ==========================================
+
+const INDIEHACKERS_ANALYSIS_PROMPT = `You are an acquisition scout looking at an IndieHackers Product listing.
+ 
+ Analyze this product to determine if it is a viable acquisition target.
+ 
+ Product Name: "{title}"
+ Product Details (Tagline/Description/Revenue): "{content}"
+ Founder: {author}
+ 
+ We are scanning the "Products" database. 
+ Look for:
+ - Confirmed Revenue (MRR/ARR) mentioned in the details
+ - SaaS/Software business models (vs just a blog or newsletter)
+ - Signs of finding product-market fit
+ - Solo founders
+ 
+ Return JSON (Standard DealAnalysis structure):
+ {
+   "business_name": "Name",
+   "industry": "SaaS/Content/etc",
+   "estimated_revenue": "Parse exact $ from details if available",
+   "revenue_type": "MRR/ARR",
+   "valuation_range": { "min": number, "max": number },
+   "viability_score": number 0-100 (High for verified revenue > $0 > $500),
+   "motivation_score": number 0-100,
+   "deal_quality": number 0-100,
+   "risk_flags": [],
+   "seller_signals": [],
+   "contact_info": { "website": "", "email": "" },
+   "ai_summary": "Investment thesis based on product metrics",
+   "business_type": "SaaS/etc"
+ }
+ `;
+
+export async function analyzeIndieHackersPost(title: string, content: string, author: string): Promise<DealAnalysis | null> {
+    return runGenericAnalysis(INDIEHACKERS_ANALYSIS_PROMPT, { title, content, author }, "IndieHackers");
+}
+
+
+//Helper to avoid code duplication
+async function runGenericAnalysis(promptTemplate: string, replacements: Record<string, string>, sourceName: string): Promise<DealAnalysis | null> {
+    if (!process.env.GEMINI_API_KEY) return null;
+
+    let prompt = promptTemplate;
+    for (const [key, value] of Object.entries(replacements)) {
+        prompt = prompt.replace(`{${key}}`, (value || "").slice(0, 5000));
+    }
+
+    const MAX_RETRIES = 3;
+    let attempt = 0;
+
+    while (attempt < MAX_RETRIES) {
+        try {
+            const result = await model.generateContent(prompt);
+            const response = await result.response;
+            const text = response.text();
+            const jsonMatch = text.match(/\{[\s\S]*\}/);
+
+            if (!jsonMatch) return null;
+            return JSON.parse(jsonMatch[0]) as DealAnalysis;
+        } catch (error: any) {
+            // Check for 429 or other retryable errors
+            if (error?.status === 429 || error?.message?.includes("429")) {
+                attempt++;
+                console.warn(`⚠️ Gemini rate limit (429) for ${sourceName}. Retrying attempt ${attempt}/${MAX_RETRIES} in ${attempt * 2}s...`);
+                await new Promise(resolve => setTimeout(resolve, attempt * 2000)); // Exponential-ish backoff
+                continue;
+            }
+
+            console.error(`Gemini error for ${sourceName}:`, error);
+            return null;
+        }
+    }
+
+    console.error(`❌ Failed to analyze ${sourceName} after ${MAX_RETRIES} attempts due to rate limits.`);
+    return null;
 }

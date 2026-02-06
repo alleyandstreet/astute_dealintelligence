@@ -86,7 +86,7 @@ const INDIEHUSTLE_PACKS = {
         name: "Content Businesses",
         items: ["newsletter", "content", "media"],
         keywords: ["subscribers", "revenue", "monetization"],
-        color: "pink",
+        color: "rose",
     },
     services: {
         name: "Service Businesses",
@@ -96,9 +96,56 @@ const INDIEHUSTLE_PACKS = {
     },
 };
 
-const getSearchStages = (platform: "reddit" | "producthunt" | "indiehustle") => {
-    const platformName = platform === "reddit" ? "Reddit" : platform === "producthunt" ? "ProductHunt" : "IndieHustle";
-    const fetchLabel = platform === "reddit" ? "Fetching Posts" : platform === "producthunt" ? "Fetching Products" : "Fetching Articles";
+const INDIEHACKERS_PACKS = {
+    growth: {
+        name: "Growth Sagas",
+        items: ["marketing", "seo", "growth", "sales"],
+        keywords: ["mrr", "users", "content"],
+        color: "pink",
+    },
+    milestones: {
+        name: "Milestones",
+        items: ["revenue", "mrr", "acquired", "exit"],
+        keywords: ["milestone", "celebration", "money"],
+        color: "green",
+    },
+    tech: {
+        name: "No-Code / Tech",
+        items: ["nocode", "bubble", "nextjs", "stack"],
+        keywords: ["build", "ship", "mvp"],
+        color: "purple",
+    },
+};
+
+const colorStyles: Record<string, { bg: string, border: string, text: string, hover: string }> = {
+    cyan: { bg: "bg-cyan-500/5", border: "border-cyan-500/20", text: "text-cyan-400", hover: "hover:bg-cyan-500/10" },
+    amber: { bg: "bg-amber-500/5", border: "border-amber-500/20", text: "text-amber-400", hover: "hover:bg-amber-500/10" },
+    green: { bg: "bg-green-500/5", border: "border-green-500/20", text: "text-green-400", hover: "hover:bg-green-500/10" },
+    purple: { bg: "bg-purple-500/5", border: "border-purple-500/20", text: "text-purple-400", hover: "hover:bg-purple-500/10" },
+    rose: { bg: "bg-rose-500/5", border: "border-rose-500/20", text: "text-rose-400", hover: "hover:bg-rose-500/10" },
+    indigo: { bg: "bg-indigo-500/5", border: "border-indigo-500/20", text: "text-indigo-400", hover: "hover:bg-indigo-500/10" },
+    emerald: { bg: "bg-emerald-500/5", border: "border-emerald-500/20", text: "text-emerald-400", hover: "hover:bg-emerald-500/10" },
+    orange: { bg: "bg-orange-500/5", border: "border-orange-500/20", text: "text-orange-400", hover: "hover:bg-orange-500/10" },
+    blue: { bg: "bg-blue-500/5", border: "border-blue-500/20", text: "text-blue-400", hover: "hover:bg-blue-500/10" },
+    pink: { bg: "bg-pink-500/5", border: "border-pink-500/20", text: "text-pink-400", hover: "hover:bg-pink-500/10" },
+    red: { bg: "bg-red-500/5", border: "border-red-500/20", text: "text-red-400", hover: "hover:bg-red-500/10" },
+};
+
+const getSearchStages = (platform: string) => {
+    const platformName = {
+        reddit: "Reddit",
+        producthunt: "ProductHunt",
+        indiehustle: "IndieHustle",
+        indiehackers: "IndieHackers",
+    }[platform] || "Platform";
+
+    const fetchLabel = {
+        reddit: "Fetching Posts",
+        producthunt: "Fetching Products",
+        indiehustle: "Fetching Articles",
+        indiehackers: "Fetching Feed",
+    }[platform] || "Fetching Content";
+
     return [
         { icon: Globe, label: `Connecting to ${platformName}`, color: "cyan" },
         { icon: MessageSquare, label: fetchLabel, color: "blue" },
@@ -127,12 +174,12 @@ function SourcesContent() {
     const [keywords, setKeywords] = useState<string[]>([]);
     const [newSubreddit, setNewSubreddit] = useState("");
     const [newKeyword, setNewKeyword] = useState("");
-    const [platform, setPlatform] = useState<"reddit" | "producthunt" | "indiehustle">(initialPlatform);
+
+    // Determine platform from source param, default to reddit
+    const platform = (sourceParam || "reddit") as string;
     const [minRevenue, setMinRevenue] = useState("");
 
-    useEffect(() => {
-        setPlatform(initialPlatform);
-    }, [initialPlatform]);
+
 
     const [isScanning, setIsScanning] = useState(false);
     const [logs, setLogs] = useState<{ id: string; message: string; type: string }[]>([]);
@@ -239,8 +286,13 @@ function SourcesContent() {
             setSubreddits((prev) => [...new Set([...prev, ...pack.items])]);
             setKeywords((prev) => [...new Set([...prev, ...pack.keywords])]);
             toast.success(`Added ${pack.name}`);
-        } else {
+        } else if (platform === "indiehustle") {
             const pack = INDIEHUSTLE_PACKS[key as keyof typeof INDIEHUSTLE_PACKS];
+            setSubreddits((prev) => [...new Set([...prev, ...pack.items])]);
+            setKeywords((prev) => [...new Set([...prev, ...pack.keywords])]);
+            toast.success(`Added ${pack.name}`);
+        } else if (platform === "indiehackers") {
+            const pack = INDIEHACKERS_PACKS[key as keyof typeof INDIEHACKERS_PACKS];
             setSubreddits((prev) => [...new Set([...prev, ...pack.items])]);
             setKeywords((prev) => [...new Set([...prev, ...pack.keywords])]);
             toast.success(`Added ${pack.name}`);
@@ -396,7 +448,7 @@ function SourcesContent() {
                             ? "Configure subreddits and keywords to discover deals"
                             : platform === "producthunt"
                                 ? "Configure topics to discover ProductHunt opportunities"
-                                : "Scan IndieHustle articles for business opportunities"}
+                                : `Configure settings to discover deals on ${platform === 'lobsters' ? 'Lobsters' : platform === 'indiehackers' ? 'Indie Hackers' : 'IndieHustle'}`}
                     </p>
                 </div>
                 <div className="flex gap-2">
@@ -543,7 +595,7 @@ function SourcesContent() {
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="font-semibold text-white flex items-center gap-2">
                             <Search className="w-5 h-5 text-cyan-400" />
-                            {platform === "reddit" ? "Subreddits" : "Topics"}
+                            {platform === "reddit" ? "Subreddits" : platform === "producthunt" ? "Topics" : "Config / Tags"}
                         </h2>
                     </div>
 
@@ -553,7 +605,11 @@ function SourcesContent() {
                             value={newSubreddit}
                             onChange={(e) => setNewSubreddit(e.target.value)}
                             onKeyDown={(e) => e.key === "Enter" && addSubreddit()}
-                            placeholder={platform === "reddit" ? "r/smallbusiness" : "tech, productivity, saas"}
+                            placeholder={
+                                platform === "reddit" ? "r/smallbusiness" :
+                                    platform === "lobsters" ? "Tags (optional)" :
+                                        "topics..."
+                            }
                             className="flex-1 bg-[var(--background)] border border-[var(--border)] rounded-lg px-4 py-2 text-white placeholder:text-[var(--text-dim)] focus:border-cyan-500 focus:outline-none"
                         />
                         <button onClick={addSubreddit} className="btn-primary px-4">
@@ -579,7 +635,7 @@ function SourcesContent() {
                             </motion.span>
                         ))}
                         {subreddits.length === 0 && (
-                            <p className="text-[var(--text-dim)] text-sm">No {platform === "reddit" ? "subreddits" : "topics"} added</p>
+                            <p className="text-[var(--text-dim)] text-sm">No {platform === "reddit" ? "subreddits" : "items"} added</p>
                         )}
                     </div>
                 </div>
@@ -656,34 +712,41 @@ function SourcesContent() {
                 </div>
             </div>
 
-            {/* Quick Add Packs */}
-            <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-6 mb-8">
-                <h2 className="font-semibold text-white mb-4">Quick Add {platform === "reddit" ? "Packs" : platform === "producthunt" ? "Topics" : "Categories"}</h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {(platform === "reddit"
-                        ? Object.entries(SUBREDDIT_PACKS)
-                        : platform === "producthunt"
-                            ? Object.entries(TOPIC_PACKS)
-                            : Object.entries(INDIEHUSTLE_PACKS)
-                    ).map(([key, pack]) => (
-                        <motion.button
-                            key={key}
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
-                            onClick={() => addPack(key)}
-                            className={`p-4 rounded-xl bg-${pack.color}-500/5 border border-${pack.color}-500/20 hover:bg-${pack.color}-500/10 transition-all text-left`}
-                        >
-                            <h3 className={`font-semibold text-${pack.color}-400 mb-2`}>{pack.name}</h3>
-                            <p className="text-xs text-[var(--text-muted)]">
-                                {platform === "reddit"
-                                    ? (pack as any).subreddits.map((s: string) => `r/${s}`).join(", ")
-                                    : (pack as any).items.map((s: string) => s).join(", ")
-                                }
-                            </p>
-                        </motion.button>
-                    ))}
+            {/* Quick Add Packs - Only show for platforms that have them */}
+            {["reddit", "producthunt", "indiehustle", "indiehackers"].includes(platform) && (
+                <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-6 mb-8">
+                    <h2 className="font-semibold text-white mb-4">Quick Add {platform === "reddit" ? "Packs" : "Topics"}</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {(platform === "reddit"
+                            ? Object.entries(SUBREDDIT_PACKS)
+                            : platform === "producthunt"
+                                ? Object.entries(TOPIC_PACKS)
+                                : platform === "indiehustle"
+                                    ? Object.entries(INDIEHUSTLE_PACKS)
+                                    : Object.entries(INDIEHACKERS_PACKS)
+                        ).map(([key, pack]) => {
+                            const styles = colorStyles[pack.color] || colorStyles.cyan;
+                            return (
+                                <motion.button
+                                    key={key}
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.98 }}
+                                    onClick={() => addPack(key)}
+                                    className={`p-4 rounded-xl ${styles.bg} border ${styles.border} ${styles.hover} transition-all text-left`}
+                                >
+                                    <h3 className={`font-semibold ${styles.text} mb-2`}>{pack.name}</h3>
+                                    <p className="text-xs text-[var(--text-muted)]">
+                                        {platform === "reddit"
+                                            ? (pack as any).subreddits.map((s: string) => `r/${s}`).join(", ")
+                                            : (pack as any).items.map((s: string) => s).join(", ")
+                                        }
+                                    </p>
+                                </motion.button>
+                            );
+                        })}
+                    </div>
                 </div>
-            </div>
+            )}
 
             {/* Start Scan Button */}
             <div className="flex justify-center mb-8">
@@ -691,7 +754,8 @@ function SourcesContent() {
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={startScan}
-                    disabled={isScanning || subreddits.length === 0}
+
+                    disabled={isScanning || (subreddits.length === 0 && platform !== 'indiehackers' && platform !== 'lobsters')}
                     className="btn-primary px-8 py-4 text-lg flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     {isScanning ? (

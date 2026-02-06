@@ -1,5 +1,8 @@
 import { db } from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { logActivity } from "@/lib/activity-logger";
 
 // GET notes for a deal
 export async function GET(request: NextRequest) {
@@ -40,6 +43,16 @@ export async function POST(request: NextRequest) {
             },
         });
 
+        const session = await getServerSession(authOptions);
+        if (session?.user) {
+            await logActivity({
+                userId: (session.user as any).id,
+                action: "note_added",
+                details: `Added note to deal ID: ${dealId}`,
+                ipAddress: request.headers.get("x-forwarded-for") || undefined,
+            });
+        }
+
         return NextResponse.json(note, { status: 201 });
     } catch (error) {
         console.error("Error creating note:", error);
@@ -60,6 +73,16 @@ export async function DELETE(request: NextRequest) {
         await db.note.delete({
             where: { id },
         });
+
+        const session = await getServerSession(authOptions);
+        if (session?.user) {
+            await logActivity({
+                userId: (session.user as any).id,
+                action: "note_deleted",
+                details: `Deleted note ID: ${id}`,
+                ipAddress: request.headers.get("x-forwarded-for") || undefined,
+            });
+        }
 
         return NextResponse.json({ success: true });
     } catch (error) {
