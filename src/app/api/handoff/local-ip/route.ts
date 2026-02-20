@@ -7,8 +7,8 @@ export async function GET() {
 
     for (const name of Object.keys(nets)) {
         for (const net of nets[name]!) {
-            // Skip over non-IPv4 and internal (i.e. 127.0.0.1) addresses
-            if (net.family === "IPv4" && !net.internal) {
+            // Skip over non-IPv4, internal (127.0.0.1), and link-local (169.254.x.x) addresses
+            if (net.family === "IPv4" && !net.internal && !net.address.startsWith("169.254")) {
                 localIp = net.address;
                 break;
             }

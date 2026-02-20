@@ -263,7 +263,8 @@ export default function InstagramGenerator() {
     };
 
     const handleSchedule = async () => {
-        if (!selectedCaption || !scheduledDate) return;
+        if (!scheduledDate) return;
+        if (!selectedCaption?.caption && mediaFiles.length === 0) return;
 
         setLoading(true);
         try {
@@ -289,12 +290,13 @@ export default function InstagramGenerator() {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    caption: selectedCaption.caption,
-                    hashtags: typeof selectedCaption.hashtags === 'object' && !Array.isArray(selectedCaption.hashtags)
-                        ? [...Object.values(selectedCaption.hashtags)].flat()
-                        : typeof selectedCaption.hashtags === 'string'
-                            ? selectedCaption.hashtags.split(' ')
-                            : selectedCaption.hashtags,
+                    caption: selectedCaption?.caption || "",
+                    hashtags: !selectedCaption?.hashtags ? [] :
+                        typeof selectedCaption.hashtags === 'object' && !Array.isArray(selectedCaption.hashtags)
+                            ? [...Object.values(selectedCaption.hashtags)].flat()
+                            : typeof selectedCaption.hashtags === 'string'
+                                ? selectedCaption.hashtags.split(' ')
+                                : selectedCaption.hashtags,
                     scheduledFor: scheduledDate.toISOString(),
                     mediaFiles: uploadedUrls, // Sending real URLs now
                     platform: activeTab,
@@ -936,7 +938,7 @@ export default function InstagramGenerator() {
                                     </div>
 
                                     <button
-                                        disabled={mediaFiles.length === 0 || !scheduledDate || loading}
+                                        disabled={(!selectedCaption?.caption && mediaFiles.length === 0) || !scheduledDate || loading}
                                         className="w-full py-5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white font-black uppercase tracking-[0.1em] rounded-xl transition-all shadow-xl shadow-emerald-900/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 relative overflow-hidden group"
                                         onClick={handleSchedule}
                                     >

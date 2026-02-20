@@ -91,9 +91,20 @@ export const QuickPostActionCenter: React.FC<QuickPostActionCenterProps> = ({
 
     const getViewUrl = () => {
         const id = handoffId || postId;
-        const currentPort = typeof window !== 'undefined' ? window.location.port : '3000';
-        const host = localIp ? `${localIp}:${currentPort}` : (typeof window !== 'undefined' ? window.location.host : '');
-        const protocol = typeof window !== 'undefined' ? window.location.protocol : 'http:';
+
+        // Detect if we are on a real domain or localhost
+        const isLocal = typeof window !== 'undefined' &&
+            (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
+        let host = typeof window !== 'undefined' ? window.location.host : '';
+
+        // Only use localIp if we are actually working locally
+        if (isLocal && localIp) {
+            const currentPort = window.location.port;
+            host = currentPort ? `${localIp}:${currentPort}` : localIp;
+        }
+
+        const protocol = typeof window !== 'undefined' ? window.location.protocol : 'https:';
         return `${protocol}//${host}/bridge/${id}`;
     };
 

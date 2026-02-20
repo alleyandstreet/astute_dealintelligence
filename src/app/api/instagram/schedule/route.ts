@@ -21,9 +21,9 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "User ID not found in session" }, { status: 400 });
         }
 
-        // Validate
-        if (!caption || !scheduledFor) {
-            return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+        // Validate: Need either caption or media, and always need a scheduled date
+        if ((!caption && (!mediaFiles || mediaFiles.length === 0)) || !scheduledFor) {
+            return NextResponse.json({ error: "Missing required fields (need either caption or media, and a date)" }, { status: 400 });
         }
 
         const scheduledDate = new Date(scheduledFor);
