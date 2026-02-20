@@ -20,6 +20,7 @@ import {
     ChevronRight,
     Target,
     Calendar,
+    Zap,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import { AstuteLogo } from "@/components/AstuteLogo";
@@ -75,7 +76,7 @@ const navItems: NavItem[] = [
 
 
     { href: "/deals", label: "Deals", icon: Briefcase },
-    { href: "/calendar", label: "Content Calendar", icon: Calendar },
+    { href: "/marketing/outliner", label: "Script Lab", icon: Zap },
     { href: "/pipeline", label: "Pipeline", icon: Kanban },
     { href: "/team-chat", label: "Team Chat", icon: MessageCircle },
     { href: "/support", label: "Support", icon: HelpCircle },
@@ -94,7 +95,7 @@ const SidebarItem = ({ item, level = 0, onClose, pathname }: { item: NavItem, le
         return false;
     };
 
-    const [isExpanded, setIsExpanded] = useState(level < 2 || isChildActive(item)); // Default open top levels
+    const [isExpanded, setIsExpanded] = useState(isChildActive(item)); // Only open if a child is active
 
     const Icon = item.icon;
     const hasChildren = item.children && item.children.length > 0;

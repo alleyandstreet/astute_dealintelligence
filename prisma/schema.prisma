@@ -1,5 +1,5 @@
 generator client {
-  provider = "prisma-client-js"
+  provider   = "prisma-client-js"
   engineType = "library"
 }
 
@@ -9,18 +9,40 @@ datasource db {
 }
 
 model User {
+  id             String          @id @default(cuid())
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  username       String          @unique
+  password       String
+  email          String?
+  role           String          @default("member")
+  isActive       Boolean         @default(true)
+  lastLogin      DateTime?
+  logs           ActivityLog[]
+  businesses     Business[]
+  scheduledPosts ScheduledPost[]
+  savedBlueprints SavedBlueprint[]
+}
+
+model SavedBlueprint {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  username  String   @unique
-  password  String
-  email     String?
-  role      String   @default("member")
-  isActive  Boolean  @default(true)
-  lastLogin DateTime?
-  logs      ActivityLog[]
-  businesses Business[]
-  scheduledPosts ScheduledPost[]
+  
+  title     String
+  prompt    String
+  format    String
+  persona   String
+  thinking  String?
+  
+  // JSON Blobs for the flexible analysis and structure
+  blueprint Json     // The "Viral Intelligence" (trendingHooks, analysis, viralGeometry)
+  outline   Json     // The "Architected Script" (title, hook, structure, cta, metaData)
+  
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Business {
@@ -41,37 +63,37 @@ model ActivityLog {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   action    String
   details   String?
   ipAddress String?
   userAgent String?
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Deal {
-  id          String   @id @default(cuid())
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  name        String
-  description String?
-  industry    String?
-  location    String?
-  url         String?
-  askingPrice    Float?
-  revenue        Float?
-  revenueType    String?
-  ebitda         Float?
-  sde            Float?
-  valuationMin   Float?
-  valuationMax   Float?
-  source         String
-  sourceId       String?  @unique
-  sourceName     String?
-  redditUrl      String?
-  redditAuthor   String?
-  redditScore    Int?
-  redditComments Int?
-  status         String   @default("new_leads")
+  id              String     @id @default(cuid())
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  name            String
+  description     String?
+  industry        String?
+  location        String?
+  url             String?
+  askingPrice     Float?
+  revenue         Float?
+  revenueType     String?
+  ebitda          Float?
+  sde             Float?
+  valuationMin    Float?
+  valuationMax    Float?
+  source          String
+  sourceId        String?    @unique
+  sourceName      String?
+  redditUrl       String?
+  redditAuthor    String?
+  redditScore     Int?
+  redditComments  Int?
+  status          String     @default("new_leads")
   aiSummary       String?
   viabilityScore  Int?
   motivationScore Int?
@@ -85,9 +107,9 @@ model Deal {
   contactTwitter  String?
   contactLinkedIn String?
   contactDiscord  String?
-  notes       Note[]
-  outreaches  Outreach[]
-  tags        DealTag[]
+  tags            DealTag[]
+  notes           Note[]
+  outreaches      Outreach[]
 }
 
 model Note {
@@ -133,37 +155,38 @@ model SearchConfig {
 }
 
 model ScanLog {
-  id           String   @id @default(cuid())
-  startedAt    DateTime @default(now())
+  id           String    @id @default(cuid())
+  startedAt    DateTime  @default(now())
   completedAt  DateTime?
-  status       String   @default("running")
-  postsScanned Int      @default(0)
-  dealsFound   Int      @default(0)
+  status       String    @default("running")
+  postsScanned Int       @default(0)
+  dealsFound   Int       @default(0)
   errors       String?
 }
 
 model TeamMessage {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  content   String
-  sender    String   @default("User")
-  senderEmail String? // For identity verification
-  attachment String? // Base64 or URL
-  attachmentType String? // image, file, etc.
-  editHistory Json? // Array of { content, timestamp }
-  deletedFor String[] @default([]) // Array of emails
+  id             String   @id @default(cuid())
+  createdAt      DateTime @default(now())
+  content        String
+  sender         String   @default("User")
+  senderEmail    String?
+  attachment     String?
+  attachmentType String?
+  editHistory    Json?
+  deletedFor     String[] @default([])
 }
 
 model ScheduledPost {
-  id           String   @id @default(cuid())
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  caption      String
-  hashtags     String[]
-  platform     String   @default("instagram") // platform name (instagram, linkedin, etc.)
-  scheduledFor DateTime
-  status       String   @default("scheduled") // scheduled, posted, failed
-  mediaUrls    String   // JSON stringified array of file paths/URLs
-  userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id              String   @id @default(cuid())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  caption         String
+  hashtags        String[]
+  scheduledFor    DateTime
+  status          String   @default("scheduled")
+  mediaUrls       String
+  userId          String
+  platform        String   @default("instagram")
+  reminderEnabled Boolean  @default(false)
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

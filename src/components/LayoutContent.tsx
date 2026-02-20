@@ -2,8 +2,10 @@
 
 import { useState, Suspense } from "react";
 import { usePathname } from "next/navigation";
+
 import Sidebar from "@/components/Sidebar";
 import ContentSidebar from "@/components/ContentSidebar";
+import MarketIntelligenceSidebar from "@/components/MarketIntelligenceSidebar";
 import { Menu } from "lucide-react";
 import { AstuteLogo } from "@/components/AstuteLogo";
 import { CommandPalette } from "@/components/CommandPalette";
@@ -14,15 +16,18 @@ export function LayoutContent({ children }: { children: React.ReactNode }) {
     const isLoginPage = pathname === "/login";
 
     const isHubPage = pathname === "/";
-    // Modified: Marketing page is now part of the Content Platform layout
     const isMarketingPage = pathname?.startsWith("/marketing");
     const isCalendarPage = pathname?.startsWith("/calendar");
     const isHooksPage = pathname === "/marketing/hooks";
-    const isContentPlatform = isMarketingPage || isCalendarPage || isHooksPage;
+    const isMarketIntelligencePage = pathname?.startsWith("/market-intelligence");
     const isAdminPage = pathname?.startsWith("/admin");
+    const isPostPage = pathname?.startsWith("/p/");
+    const isBridgePage = pathname?.startsWith("/bridge/");
 
-    // Full screen layout (No Sidebar) for Login, Hub, and Admin
-    if (isLoginPage || isHubPage || isAdminPage) {
+    const isContentPlatform = isMarketingPage || isCalendarPage || isHooksPage;
+
+    // Full screen layout (No Sidebar) for Login, Hub, Admin, and Public Post Bridge
+    if (isLoginPage || isHubPage || isAdminPage || isPostPage || isBridgePage) {
         return (
             <main className="min-h-screen">
                 {children}
@@ -55,6 +60,9 @@ export function LayoutContent({ children }: { children: React.ReactNode }) {
                 <Suspense fallback={null}>
                     {isContentPlatform ? (
                         <ContentSidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+                    ) : isMarketIntelligencePage ? (
+                        <MarketIntelligenceSidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+
                     ) : (
                         <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
                     )}

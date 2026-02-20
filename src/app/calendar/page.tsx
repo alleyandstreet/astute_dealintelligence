@@ -1,7 +1,8 @@
-import { db } from "@/lib/db";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { redirect } from "next/navigation";
+"use client";
+
+import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import {
     Clock,
     Calendar as CalendarIcon,
@@ -11,31 +12,55 @@ import {
     AlertCircle,
     MoreHorizontal,
     Sparkles,
-    Filter
+    Filter,
+    Loader2
 } from "lucide-react";
 
 import Link from "next/link";
 import CalendarGrid from "@/components/CalendarGrid";
 
-export const metadata = {
-    title: "Content Calendar | Astute",
-    description: "Manage your scheduled social media content.",
-};
+export default function ContentCalendar() {
+    const { data: session, status } = useSession();
+    const router = useRouter();
+    const [posts, setPosts] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
 
-export default async function ContentCalendar() {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) redirect("/login");
+    useEffect(() => {
+        if (status === "unauthenticated") {
+            router.push("/login");
+        }
+    }, [status, router]);
 
-    const user = await db.user.findFirst({
-        where: { email: session.user.email }
-    });
+    useEffect(() => {
+        if (status === "authenticated") {
+            fetchPosts();
+        }
+    }, [status]);
 
-    if (!user) redirect("/login");
+    const fetchPosts = async () => {
+        try {
+            const res = await fetch("/api/instagram/calendar");
+            if (res.ok) {
+                const data = await res.json();
+                setPosts(data);
+            }
+        } catch (error) {
+            console.error("Failed to fetch calendar posts:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
-    const posts = await db.scheduledPost.findMany({
-        where: { userId: user.id },
-        orderBy: { scheduledFor: 'asc' },
-    });
+    if (status === "loading" || (status === "authenticated" && loading)) {
+        return (
+            <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
+                <Loader2 className="w-10 h-10 animate-spin text-pink-500" />
+                <p className="text-zinc-500 font-medium animate-pulse">Syncing your content...</p>
+            </div>
+        );
+    }
+
+    if (!session) return null;
 
     // Stats calculation
     const totalPosts = posts.length;
@@ -43,7 +68,7 @@ export default async function ContentCalendar() {
     const postedPosts = posts.filter(p => p.status === 'posted').length;
 
     return (
-        <div className="space-y-8">
+        <div className="space-y-8 animate-in fade-in duration-700">
             {/* Header Section */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
@@ -63,8 +88,8 @@ export default async function ContentCalendar() {
 
             {/* Stats Overview */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-[#111] border border-white/5 p-5 rounded-2xl flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500">
+                <div className="bg-[#111] border border-white/5 p-5 rounded-2xl flex items-center gap-4 hover:border-blue-500/20 transition-colors group">
+                    <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500 group-hover:scale-110 transition-transform">
                         <CalendarIcon className="w-6 h-6" />
                     </div>
                     <div>
@@ -72,8 +97,8 @@ export default async function ContentCalendar() {
                         <h3 className="text-2xl font-bold text-white">{totalPosts}</h3>
                     </div>
                 </div>
-                <div className="bg-[#111] border border-white/5 p-5 rounded-2xl flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-yellow-500/10 flex items-center justify-center text-yellow-500">
+                <div className="bg-[#111] border border-white/5 p-5 rounded-2xl flex items-center gap-4 hover:border-yellow-500/20 transition-colors group">
+                    <div className="w-12 h-12 rounded-xl bg-yellow-500/10 flex items-center justify-center text-yellow-500 group-hover:scale-110 transition-transform">
                         <Clock className="w-6 h-6" />
                     </div>
                     <div>
@@ -81,8 +106,8 @@ export default async function ContentCalendar() {
                         <h3 className="text-2xl font-bold text-white">{pendingPosts}</h3>
                     </div>
                 </div>
-                <div className="bg-[#111] border border-white/5 p-5 rounded-2xl flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center text-green-500">
+                <div className="bg-[#111] border border-white/5 p-5 rounded-2xl flex items-center gap-4 hover:border-green-500/20 transition-colors group">
+                    <div className="w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center text-green-500 group-hover:scale-110 transition-transform">
                         <CheckCircle2 className="w-6 h-6" />
                     </div>
                     <div>
@@ -121,14 +146,9 @@ export default async function ContentCalendar() {
                         </Link>
                     </div>
                 ) : (
-                    <CalendarGrid initialPosts={posts.map(p => ({
-                        ...p,
-                        scheduledFor: p.scheduledFor.toISOString(), // Serialize date for client component
-                        mediaUrls: p.mediaUrls // Pass string directly, parsed in component
-                    }))} />
+                    <CalendarGrid initialPosts={posts} />
                 )}
             </div>
         </div>
     );
 }
-

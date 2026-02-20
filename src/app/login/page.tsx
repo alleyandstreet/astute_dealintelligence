@@ -18,7 +18,7 @@ export default function LoginPage() {
     useEffect(() => {
         const timer = setTimeout(() => {
             setIsAnimating(false);
-        }, 4000); // Duration of the initial animation
+        }, 500); // Reduced from 4000ms to 500ms for faster entry
         return () => clearTimeout(timer);
     }, []);
 
@@ -45,7 +45,7 @@ export default function LoginPage() {
                     toast.success("Welcome back, Team!");
                     router.push("/");
                     router.refresh();
-                }, 4000);
+                }, 500); // Reduced from 4000ms to 500ms for snappy response
             }
         } catch (error) {
             toast.error("An error occurred during sign in.");

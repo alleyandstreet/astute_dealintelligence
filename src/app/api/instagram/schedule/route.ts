@@ -1,5 +1,3 @@
-"use server";
-
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -9,21 +7,18 @@ export async function POST(req: NextRequest) {
     try {
         const session = await getServerSession(authOptions);
 
-        if (!session || !session.user || !session.user.email) {
+        if (!session?.user) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
         const body = await req.json();
-        const { caption, hashtags, scheduledFor, mediaFiles, platform } = body;
+        const { caption, hashtags, scheduledFor, mediaFiles, platform, reminderEnabled } = body;
 
-        // Retrieve user ID from DB using email (safest way if session.user.id isn't populated)
-        // Note: email is not unique in schema, so using findFirst
-        const user = await db.user.findFirst({
-            where: { email: session.user.email },
-        });
+        // Retrieve user ID from session
+        const userId = (session.user as any).id;
 
-        if (!user) {
-            return NextResponse.json({ error: "User not found" }, { status: 404 });
+        if (!userId) {
+            return NextResponse.json({ error: "User ID not found in session" }, { status: 400 });
         }
 
         // Validate
@@ -43,9 +38,10 @@ export async function POST(req: NextRequest) {
                 hashtags: Array.isArray(hashtags) ? hashtags : [],
                 platform: platform || "instagram",
                 scheduledFor: scheduledDate,
-                userId: user.id,
+                userId: userId,
                 status: "scheduled",
                 mediaUrls: JSON.stringify(mediaFiles || []),
+                reminderEnabled: !!reminderEnabled,
             },
         });
 

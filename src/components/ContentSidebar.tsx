@@ -13,7 +13,10 @@ import {
     Sparkles,
     Megaphone,
     Image as ImageIcon,
-    Film
+    Film,
+    Smartphone,
+    Zap,
+    Database,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import { AstuteLogo } from "@/components/AstuteLogo";
@@ -25,10 +28,19 @@ interface NavItem {
     children?: NavItem[];
 }
 
-const navItems: NavItem[] = [
+const platformItems: NavItem[] = [
     { href: "/marketing", label: "Generator", icon: Sparkles },
     { href: "/marketing/hooks", label: "Hook Lab", icon: Sparkles },
+];
+
+const planningItems: NavItem[] = [
+    { href: "/marketing/outliner", label: "Script Lab", icon: Zap },
+    { href: "/marketing/saved", label: "Script Library", icon: Database },
+];
+
+const utilityItems: NavItem[] = [
     { href: "/calendar", label: "Calendar", icon: Calendar },
+    { href: "/marketing/preview", label: "Pragmatic Preview", icon: Smartphone },
 ];
 
 interface SidebarProps {
@@ -138,8 +150,8 @@ export default function ContentSidebar({ isOpen, onClose }: SidebarProps) {
 
                 {/* Navigation */}
                 <nav className="flex-1 py-6 px-3 overflow-y-auto">
-                    <p className="px-4 text-xs font-semibold text-zinc-600 uppercase tracking-wider mb-4">Platform</p>
-                    {navItems.map((item, index) => (
+                    <p className="px-4 text-xs font-semibold text-zinc-600 uppercase tracking-widest mb-4">Planning</p>
+                    {planningItems.map((item, index) => (
                         <SidebarItem
                             key={index}
                             item={item}
@@ -147,6 +159,30 @@ export default function ContentSidebar({ isOpen, onClose }: SidebarProps) {
                             pathname={pathname}
                         />
                     ))}
+
+                    <div className="mt-8 mb-4">
+                        <p className="px-4 text-xs font-semibold text-zinc-600 uppercase tracking-widest mb-4">Execution</p>
+                        {platformItems.map((item, index) => (
+                            <SidebarItem
+                                key={index}
+                                item={item}
+                                onClose={onClose}
+                                pathname={pathname}
+                            />
+                        ))}
+                    </div>
+
+                    <div className="mt-8 mb-4">
+                        <p className="px-4 text-xs font-semibold text-zinc-600 uppercase tracking-widest mb-4">Management</p>
+                        {utilityItems.map((item, index) => (
+                            <SidebarItem
+                                key={index}
+                                item={item}
+                                onClose={onClose}
+                                pathname={pathname}
+                            />
+                        ))}
+                    </div>
 
                     <div className="my-6 border-t border-white/5 mx-4" />
 

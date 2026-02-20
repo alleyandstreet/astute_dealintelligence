@@ -41,6 +41,31 @@ export async function DELETE(
     }
 }
 
+export async function GET(
+    req: NextRequest,
+    context: { params: Promise<{ id: string }> }
+) {
+    try {
+        const params = await context.params;
+        const { id } = params;
+
+        const post = await db.scheduledPost.findUnique({
+            where: { id },
+        });
+
+        if (!post) {
+            return NextResponse.json({ error: "Post not found" }, { status: 404 });
+        }
+
+        // Allow public access for "handoff" posts or if it's a valid ID
+        // (Removing session check here to enable phone scanning without login)
+        return NextResponse.json(post);
+    } catch (error) {
+        console.error("Fetch error:", error);
+        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    }
+}
+
 export async function PATCH(
     req: NextRequest,
     context: { params: Promise<{ id: string }> }

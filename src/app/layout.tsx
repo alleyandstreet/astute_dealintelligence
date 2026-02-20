@@ -25,7 +25,7 @@ export default function RootLayout({
           <ContentStateProvider>
             <LayoutContent>
               {children}
-              <TeamChat />
+              {/* <TeamChat /> */}
             </LayoutContent>
           </ContentStateProvider>
         </AuthProvider>

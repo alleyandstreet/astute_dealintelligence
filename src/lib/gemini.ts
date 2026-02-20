@@ -2,30 +2,241 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // Gemini client - will use GEMINI_API_KEY from environment
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-const MODEL_NAME = "gemini-flash-latest";
+const MODEL_NAME = "gemini-flash-latest"; // Confirmed working model
 export const model = genAI.getGenerativeModel({ model: MODEL_NAME });
 
+// ... (Existing interfaces) ...
+
+// ==========================================
+// MARKET INTELLIGENCE ANALYSIS
+// ==========================================
+
+const MARKET_ANALYSIS_PROMPT = `You are a Principal Analyst at a top-tier Private Equity firm (e.g., Blackstone, KKR).
+Perform a deep-dive due diligence analysis on the provided text or topic.
+Input: "{content}"
+
+Your goal is to provide actionable, "analyst-grade" intelligence. Avoid generic fluff. Be specific, critical, and data-driven.
+
+Return a JSON object with this exact structure:
+{
+  "executive_summary": {
+    "thesis": "The core investment thesis (1-2 sentences)",
+    "investment_horizon": "Short/Medium/Long Term",
+    "market_readiness": "Early/Growth/Mature/Decline"
+  },
+  "market_dynamics": {
+    "market_size": "Total Addressable Market (TAM) estimate with currency",
+    "cagr": "Compound Annual Growth Rate estimate",
+    "growth_drivers": ["Driver 1", "Driver 2"],
+    "hindrances": ["Barrier 1", "Barrier 2"],
+    "consumer_behavior": "Key shifts in how customers are buying/using this"
+  },
+  "competitive_landscape": [
+    {
+      "name": "Competitor Name",
+      "market_share_estimate": number (0-100),
+      "strength": "Key advantage",
+      "weakness": "Key vulnerability"
+    }
+  ],
+  "strategic_analysis": {
+    "swot": {
+      "strengths": ["Internal Strength 1", "Internal Strength 2"],
+      "weaknesses": ["Internal Weakness 1", "Internal Weakness 2"],
+      "opportunities": ["External Opportunity 1", "External Opportunity 2"],
+      "threats": ["External Threat 1", "External Threat 2"]
+    },
+    "pestle": {
+      "political": "Regulatory/Political factor",
+      "economic": "Economic factor (rates, inflation)",
+      "social": "Social trend",
+      "technological": "Tech disruption",
+      "legal": "Legal risk",
+      "environmental": "Sustainability factor"
+    }
+  },
+  "trends": [
+    {
+      "name": "Trend Name",
+      "description": "Deep description",
+      "impact": "High/Medium/Low",
+      "timeframe": "Near/Mid/Far"
+    }
+  ],
+  "opportunities": [
+    {
+        "title": "Opportunity",
+        "thesis": "Investment Thesis",
+        "difficulty": "Easy/Moderate/Hard"
+    }
+  ],
+  "risks": [
+    { "risk": "Specific Risk", "impact": "High/Medium/Low", "mitigation": "How to mitigate" }
+  ],
+  "regulatory_landscape": "Summary of key regulations (GDPR, AI Act, etc.)",
+  "ma_activity": "Recent mergers, acquisitions, or consolidation trends",
+  "overall_sentiment": "Positive/Neutral/Negative",
+  "recommended_action": "Buy/Build/Wait",
+  "sentiment_breakdown": [
+    { "name": "Positive", "value": number },
+    { "name": "Neutral", "value": number },
+    { "name": "Negative", "value": number }
+  ],
+  "growth_scenarios": {
+    "bull_case": [
+      { "year": "2023", "value": number },
+      { "year": "2024", "value": number },
+      { "year": "2025", "value": number },
+      { "year": "2026", "value": number }
+    ],
+    "base_case": [
+      { "year": "2023", "value": number },
+      { "year": "2024", "value": number },
+      { "year": "2025", "value": number },
+      { "year": "2026", "value": number }
+    ],
+    "bear_case": [
+      { "year": "2023", "value": number },
+      { "year": "2024", "value": number },
+      { "year": "2025", "value": number },
+      { "year": "2026", "value": number }
+    ]
+  },
+  "customer_personas": [
+    {
+      "role": "e.g. CTO / CFO",
+      "pain_points": ["Pain 1", "Pain 2"],
+      "willingness_to_pay": "High/Medium/Low"
+    }
+  ]
+}`;
+
+export interface MarketAnalysis {
+  executive_summary: {
+    thesis: string;
+    investment_horizon: string;
+    market_readiness: string;
+  };
+  market_dynamics: {
+    market_size: string;
+    cagr: string;
+    growth_drivers: string[];
+    hindrances: string[];
+    consumer_behavior: string;
+  };
+  competitive_landscape: {
+    name: string;
+    market_share_estimate: number;
+    strength: string;
+    weakness: string;
+  }[];
+  strategic_analysis: {
+    swot: {
+      strengths: string[];
+      weaknesses: string[];
+      opportunities: string[];
+      threats: string[];
+    };
+    pestle: {
+      political: string;
+      economic: string;
+      social: string;
+      technological: string;
+      legal: string;
+      environmental: string;
+    };
+  };
+  trends: {
+    name: string;
+    description: string;
+    impact: "High" | "Medium" | "Low";
+    timeframe: "Near" | "Mid" | "Far";
+  }[];
+  opportunities: {
+    title: string;
+    thesis: string;
+    difficulty: "Easy" | "Moderate" | "Hard";
+  }[];
+  risks: { risk: string; impact: string; mitigation: string }[];
+  regulatory_landscape: string;
+  ma_activity: string;
+  overall_sentiment: "Positive" | "Neutral" | "Negative";
+  recommended_action: "Buy" | "Build" | "Wait";
+  sentiment_breakdown: { name: string; value: number }[];
+  growth_scenarios: {
+    bull_case: { year: string; value: number }[];
+    base_case: { year: string; value: number }[];
+    bear_case: { year: string; value: number }[];
+  };
+  customer_personas: {
+    role: string;
+    pain_points: string[];
+    willingness_to_pay: "High" | "Medium" | "Low";
+  }[];
+}
+
+// Helper to rename growth_trend to base_case for legacy compatibility if needed, 
+// but we will just use the new structure.
+export async function analyzeMarketTrends(content: string): Promise<MarketAnalysis | null> {
+  // Simulate a slight delay for the "Live Search" feeling if needed, but the prompt does the heavy lifting.
+  return runGenericAnalysis<MarketAnalysis>(MARKET_ANALYSIS_PROMPT, { content }, "MarketAnalysis");
+}
+
+const ANALYST_CHAT_PROMPT = `You are the Principal Analyst who just wrote this market intelligence report.
+Context (The Report You Wrote):
+{analysis_context}
+
+User Question: "{user_message}"
+
+Answer the user's question based strictly on the report context provided above.
+If the answer is not in the report, use your general knowledge but mention that "the specific report doesn't cover this, but generally...".
+Keep answers concise, professional, and dense with information.
+`;
+
+export async function chatWithAnalyst(analysisContext: any, history: { role: string, content: string }[], userMessage: string): Promise<string> {
+  try {
+    // Reuse the working model instance
+    const chat = model.startChat({
+      history: history.map(h => ({
+        role: h.role === 'user' ? 'user' : 'model',
+        parts: [{ text: h.content }]
+      }))
+    });
+
+    const prompt = ANALYST_CHAT_PROMPT
+      .replace("{analysis_context}", JSON.stringify(analysisContext))
+      .replace("{user_message}", userMessage);
+
+    const result = await chat.sendMessage(prompt);
+    return result.response.text();
+  } catch (error) {
+    console.error("Chat error:", error);
+    return "I'm having trouble accessing my notes right now. Please ask again.";
+  }
+}
+
+
 export interface DealAnalysis {
-    business_name: string;
-    industry: string;
-    estimated_revenue: string;
-    revenue_type: string;
-    valuation_range: {
-        min: number;
-        max: number;
-    };
-    viability_score: number;
-    motivation_score: number;
-    deal_quality: number;
-    risk_flags: string[];
-    seller_signals: string[];
-    contact_info: {
-        reddit?: string;
-        website?: string;
-        email?: string;
-    };
-    ai_summary: string;
-    business_type: string;
+  business_name: string;
+  industry: string;
+  estimated_revenue: string;
+  revenue_type: string;
+  valuation_range: {
+    min: number;
+    max: number;
+  };
+  viability_score: number;
+  motivation_score: number;
+  deal_quality: number;
+  risk_flags: string[];
+  seller_signals: string[];
+  contact_info: {
+    reddit?: string;
+    website?: string;
+    email?: string;
+  };
+  ai_summary: string;
+  business_type: string;
 }
 
 const ANALYSIS_PROMPT = `You are a private equity analyst evaluating a Reddit post for potential business acquisition opportunities.
@@ -71,54 +282,54 @@ Provide your analysis in this exact JSON format (strict JSON):
 Only return valid JSON. Do not include any markdown formatting like \`\`\`json or introductory text.`;
 
 export async function analyzePost(
-    title: string,
-    content: string,
-    subreddit: string,
-    author: string
+  title: string,
+  content: string,
+  subreddit: string,
+  author: string
 ): Promise<DealAnalysis | null> {
-    try {
-        if (!process.env.GEMINI_API_KEY) {
-            console.error("GEMINI_API_KEY is missing");
-            return null;
-        }
-
-        const prompt = ANALYSIS_PROMPT
-            .replace("{title}", title)
-            .replace("{content}", content.slice(0, 5000))
-            .replace("{subreddit}", subreddit)
-            .replace("{author}", author);
-
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        const text = response.text();
-
-        // Extract JSON from response (handling potential markdown)
-        const jsonMatch = text.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) {
-            console.error("No JSON found in Gemini response");
-            return null;
-        }
-
-        return JSON.parse(jsonMatch[0]) as DealAnalysis;
-    } catch (error) {
-        console.error("Gemini API error during analysis:", error);
-        return null;
+  try {
+    if (!process.env.GEMINI_API_KEY) {
+      console.error("GEMINI_API_KEY is missing");
+      return null;
     }
+
+    const prompt = ANALYSIS_PROMPT
+      .replace("{title}", title)
+      .replace("{content}", content.slice(0, 5000))
+      .replace("{subreddit}", subreddit)
+      .replace("{author}", author);
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+
+    // Extract JSON from response (handling potential markdown)
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      console.error("No JSON found in Gemini response");
+      return null;
+    }
+
+    return JSON.parse(jsonMatch[0]) as DealAnalysis;
+  } catch (error) {
+    console.error("Gemini API error during analysis:", error);
+    return null;
+  }
 }
 
 export async function generateOutreachMessage(
-    dealName: string,
-    industry: string,
-    revenue: string,
-    username: string,
-    aiSummary: string
+  dealName: string,
+  industry: string,
+  revenue: string,
+  username: string,
+  aiSummary: string
 ): Promise<string> {
-    try {
-        if (!process.env.GEMINI_API_KEY) {
-            return `Hi ${username},\n\nI came across your post about ${dealName} and was impressed by what you've built. I'd love to learn more.`;
-        }
+  try {
+    if (!process.env.GEMINI_API_KEY) {
+      return `Hi ${username},\n\nI came across your post about ${dealName} and was impressed by what you've built. I'd love to learn more.`;
+    }
 
-        const prompt = `Generate a professional, personalized outreach message for a private equity acquisition opportunity.
+    const prompt = `Generate a professional, personalized outreach message for a private equity acquisition opportunity.
 
 Target: u/${username}
 Business: ${dealName}
@@ -135,13 +346,13 @@ Write a warm, professional Reddit DM that:
 
 Only return the message text, no quotes or formatting.`;
 
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        return response.text().trim();
-    } catch (error) {
-        console.error("Gemini error generating outreach:", error);
-        return `Hi ${username},\n\nI came across your post about ${dealName} and was impressed by what you've built. I work with a private equity search fund focused on ${industry} businesses.\n\nWould you be open to a brief call to learn more? Happy to sign an NDA.`;
-    }
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    return response.text().trim();
+  } catch (error) {
+    console.error("Gemini error generating outreach:", error);
+    return `Hi ${username},\n\nI came across your post about ${dealName} and was impressed by what you've built. I work with a private equity search fund focused on ${industry} businesses.\n\nWould you be open to a brief call to learn more? Happy to sign an NDA.`;
+  }
 }
 
 const PRODUCTHUNT_ANALYSIS_PROMPT = `You are a micro private equity analyst evaluating a Product Hunt listing for acquisition potential.
@@ -224,65 +435,65 @@ IMPORTANT: Be VERY generous with scoring. We want to capture as many opportuniti
 Only return valid JSON. No markdown formatting.`;
 
 export async function analyzeProductHuntListing(
-    title: string,
-    content: string,
-    topic: string,
-    maker: string
+  title: string,
+  content: string,
+  topic: string,
+  maker: string
 ): Promise<DealAnalysis | null> {
-    try {
-        console.log(`\n🔍 Starting AI analysis for: "${title}"`);
+  try {
+    console.log(`\n🔍 Starting AI analysis for: "${title}"`);
 
-        if (!process.env.GEMINI_API_KEY) {
-            console.error("❌ GEMINI_API_KEY is missing");
-            return null;
-        }
-
-        const prompt = PRODUCTHUNT_ANALYSIS_PROMPT
-            .replace("{title}", title)
-            .replace("{content}", content.slice(0, 5000))
-            .replace("{topic}", topic)
-            .replace("{maker}", maker);
-
-        console.log(`📤 Sending prompt to Gemini (content length: ${content.length} chars)...`);
-
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        const text = response.text();
-
-        console.log(`📥 Received response from Gemini (${text.length} chars)`);
-        console.log(`Response preview: ${text.slice(0, 300)}...`);
-
-        // Extract JSON from response
-        const jsonMatch = text.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) {
-            console.error("❌ No JSON found in Gemini response for ProductHunt");
-            console.error("Full response:", text);
-            return null;
-        }
-
-        console.log(`✅ Found JSON in response, attempting to parse...`);
-        const analysis = JSON.parse(jsonMatch[0]) as DealAnalysis;
-
-        console.log(`✅ Successfully parsed JSON`);
-        console.log(`ProductHunt Analysis for "${title}": Quality=${analysis.deal_quality}, Viability=${analysis.viability_score}`);
-
-        // Very generous threshold - only reject obvious non-businesses
-        // Threshold of 20 means we capture almost everything
-        if (analysis.deal_quality < 20) {
-            console.log(`❌ Rejected low quality (${analysis.deal_quality}/100) for: ${title}`);
-            return null;
-        }
-
-        console.log(`✅ Analysis passed quality check (${analysis.deal_quality}/100)\n`);
-        return analysis;
-    } catch (error) {
-        console.error("❌ Gemini API error during ProductHunt analysis:", error);
-        if (error instanceof Error) {
-            console.error("Error details:", error.message);
-            console.error("Error stack:", error.stack);
-        }
-        return null;
+    if (!process.env.GEMINI_API_KEY) {
+      console.error("❌ GEMINI_API_KEY is missing");
+      return null;
     }
+
+    const prompt = PRODUCTHUNT_ANALYSIS_PROMPT
+      .replace("{title}", title)
+      .replace("{content}", content.slice(0, 5000))
+      .replace("{topic}", topic)
+      .replace("{maker}", maker);
+
+    console.log(`📤 Sending prompt to Gemini (content length: ${content.length} chars)...`);
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+
+    console.log(`📥 Received response from Gemini (${text.length} chars)`);
+    console.log(`Response preview: ${text.slice(0, 300)}...`);
+
+    // Extract JSON from response
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      console.error("❌ No JSON found in Gemini response for ProductHunt");
+      console.error("Full response:", text);
+      return null;
+    }
+
+    console.log(`✅ Found JSON in response, attempting to parse...`);
+    const analysis = JSON.parse(jsonMatch[0]) as DealAnalysis;
+
+    console.log(`✅ Successfully parsed JSON`);
+    console.log(`ProductHunt Analysis for "${title}": Quality=${analysis.deal_quality}, Viability=${analysis.viability_score}`);
+
+    // Very generous threshold - only reject obvious non-businesses
+    // Threshold of 20 means we capture almost everything
+    if (analysis.deal_quality < 20) {
+      console.log(`❌ Rejected low quality (${analysis.deal_quality}/100) for: ${title}`);
+      return null;
+    }
+
+    console.log(`✅ Analysis passed quality check (${analysis.deal_quality}/100)\n`);
+    return analysis;
+  } catch (error) {
+    console.error("❌ Gemini API error during ProductHunt analysis:", error);
+    if (error instanceof Error) {
+      console.error("Error details:", error.message);
+      console.error("Error stack:", error.stack);
+    }
+    return null;
+  }
 }
 
 const INDIEHUSTLE_ANALYSIS_PROMPT = `You are a micro private equity analyst evaluating an IndieHustle (Substack) post for acquisition potential.
@@ -354,62 +565,62 @@ SCORING GUIDANCE:
 Only return valid JSON. No markdown formatting.`;
 
 export async function analyzeIndieHustleListing(
-    title: string,
-    content: string,
-    author: string
+  title: string,
+  content: string,
+  author: string
 ): Promise<DealAnalysis | null> {
-    try {
-        console.log(`\n🔍 Starting AI analysis for IndieHustle: "${title}"`);
+  try {
+    console.log(`\n🔍 Starting AI analysis for IndieHustle: "${title}"`);
 
-        if (!process.env.GEMINI_API_KEY) {
-            console.error("❌ GEMINI_API_KEY is missing");
-            return null;
-        }
-
-        const prompt = INDIEHUSTLE_ANALYSIS_PROMPT
-            .replace("{title}", title)
-            .replace("{content}", content.slice(0, 5000))
-            .replace("{author}", author);
-
-        console.log(`📤 Sending prompt to Gemini (content length: ${content.length} chars)...`);
-
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        const text = response.text();
-
-        console.log(`📥 Received response from Gemini (${text.length} chars)`);
-
-        // Extract JSON from response
-        const jsonMatch = text.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) {
-            console.error("❌ No JSON found in Gemini response for IndieHustle");
-            console.error("Full response:", text);
-            return null;
-        }
-
-        console.log(`✅ Found JSON in response, attempting to parse...`);
-        const analysis = JSON.parse(jsonMatch[0]) as DealAnalysis;
-
-        console.log(`✅ Successfully parsed JSON`);
-        console.log(`IndieHustle Analysis for "${title}": Quality=${analysis.deal_quality}, Viability=${analysis.viability_score}`);
-
-        // Generous threshold - capture most opportunities
-        // if (analysis.deal_quality < 20) {
-        //    console.log(`❌ Rejected low quality (${analysis.deal_quality}/100) for: ${title}`);
-        //    return null;
-        // }
-
-
-        console.log(`✅ Analysis passed quality check (${analysis.deal_quality}/100) (Threshold disabled to capture all)\n`);
-        return analysis;
-    } catch (error) {
-        console.error("❌ Gemini API error during IndieHustle analysis:", error);
-        if (error instanceof Error) {
-            console.error("Error details:", error.message);
-            console.error("Error stack:", error.stack);
-        }
-        return null;
+    if (!process.env.GEMINI_API_KEY) {
+      console.error("❌ GEMINI_API_KEY is missing");
+      return null;
     }
+
+    const prompt = INDIEHUSTLE_ANALYSIS_PROMPT
+      .replace("{title}", title)
+      .replace("{content}", content.slice(0, 5000))
+      .replace("{author}", author);
+
+    console.log(`📤 Sending prompt to Gemini (content length: ${content.length} chars)...`);
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+
+    console.log(`📥 Received response from Gemini (${text.length} chars)`);
+
+    // Extract JSON from response
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      console.error("❌ No JSON found in Gemini response for IndieHustle");
+      console.error("Full response:", text);
+      return null;
+    }
+
+    console.log(`✅ Found JSON in response, attempting to parse...`);
+    const analysis = JSON.parse(jsonMatch[0]) as DealAnalysis;
+
+    console.log(`✅ Successfully parsed JSON`);
+    console.log(`IndieHustle Analysis for "${title}": Quality=${analysis.deal_quality}, Viability=${analysis.viability_score}`);
+
+    // Generous threshold - capture most opportunities
+    // if (analysis.deal_quality < 20) {
+    //    console.log(`❌ Rejected low quality (${analysis.deal_quality}/100) for: ${title}`);
+    //    return null;
+    // }
+
+
+    console.log(`✅ Analysis passed quality check (${analysis.deal_quality}/100) (Threshold disabled to capture all)\n`);
+    return analysis;
+  } catch (error) {
+    console.error("❌ Gemini API error during IndieHustle analysis:", error);
+    if (error instanceof Error) {
+      console.error("Error details:", error.message);
+      console.error("Error stack:", error.stack);
+    }
+    return null;
+  }
 }
 
 
@@ -451,45 +662,100 @@ const INDIEHACKERS_ANALYSIS_PROMPT = `You are an acquisition scout looking at an
  `;
 
 export async function analyzeIndieHackersPost(title: string, content: string, author: string): Promise<DealAnalysis | null> {
-    return runGenericAnalysis(INDIEHACKERS_ANALYSIS_PROMPT, { title, content, author }, "IndieHackers");
+  return runGenericAnalysis<DealAnalysis>(INDIEHACKERS_ANALYSIS_PROMPT, { title, content, author }, "IndieHackers");
 }
 
 
+// ==========================================
+// GENERAL TREND ANALYSIS
+// ==========================================
+
+const TREND_WATCH_PROMPT = `You are a Futurist and Market Strategist at a premier intelligence firm.
+Perform a scan of the current global market landscape and identify the top 5 most impactful industrial trends for 2026.
+
+Focus on:
+1. Deep tech / GenAI shifts
+2. Macroeconomic and Geopolitical impacts
+3. Consumer behavior transformations
+4. Vertical-specific breakthroughs
+
+Return a JSON object with this exact structure:
+{
+  "global_sentiment": "Bullish / Bearish / Neutral / Volatile",
+  "featured_insight": "A 1-sentence profound observation about the current market",
+  "trends": [
+    {
+      "id": "unique-slug",
+      "name": "Trend Name",
+      "description": "2-sentence deep dive",
+      "impact": "High / Medium / Low",
+      "sentiment": "Positive / Negative / Neutral",
+      "growth_rate": "+X% YoY (estimate)",
+      "key_players": ["Player 1", "Player 2"],
+      "thesis": "Investment thesis: Why this matters for Private Equity"
+    }
+  ]
+}`;
+
+export interface GeneralMarketTrend {
+  id: string;
+  name: string;
+  description: string;
+  impact: string;
+  sentiment: string;
+  growth_rate: string;
+  key_players: string[];
+  thesis: string;
+}
+
+export interface TrendWatchResponse {
+  global_sentiment: string;
+  featured_insight: string;
+  trends: GeneralMarketTrend[];
+}
+
+export async function generateGeneralTrends(): Promise<TrendWatchResponse | null> {
+  return runGenericAnalysis<TrendWatchResponse>(TREND_WATCH_PROMPT, {}, "GeneralTrendWatch");
+}
+
 //Helper to avoid code duplication
-async function runGenericAnalysis(promptTemplate: string, replacements: Record<string, string>, sourceName: string): Promise<DealAnalysis | null> {
-    if (!process.env.GEMINI_API_KEY) return null;
+async function runGenericAnalysis<T>(promptTemplate: string, replacements: Record<string, string>, sourceName: string): Promise<T | null> {
+  if (!process.env.GEMINI_API_KEY) return null;
 
-    let prompt = promptTemplate;
-    for (const [key, value] of Object.entries(replacements)) {
-        prompt = prompt.replace(`{${key}}`, (value || "").slice(0, 5000));
+  let prompt = promptTemplate;
+  for (const [key, value] of Object.entries(replacements)) {
+    prompt = prompt.replace(`{${key}}`, (value || "").slice(0, 5000));
+  }
+
+  const MAX_RETRIES = 3;
+  let attempt = 0;
+
+  while (attempt < MAX_RETRIES) {
+    try {
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      const text = response.text();
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+
+      if (!jsonMatch) return null;
+      return JSON.parse(jsonMatch[0]) as T;
+    } catch (error: any) {
+      // Check for 429 or other retryable errors
+      if (error?.status === 429 || error?.message?.includes("429")) {
+        attempt++;
+        console.warn(`⚠️ Gemini rate limit (429) for ${sourceName}. Retrying attempt ${attempt}/${MAX_RETRIES} in ${attempt * 2}s...`);
+        await new Promise(resolve => setTimeout(resolve, attempt * 2000)); // Exponential-ish backoff
+        continue;
+      }
+
+      console.error(`Gemini error for ${sourceName}:`, error);
+      if (error.response) {
+        console.error("Error response:", JSON.stringify(error.response, null, 2));
+      }
+      return null;
     }
+  }
 
-    const MAX_RETRIES = 3;
-    let attempt = 0;
-
-    while (attempt < MAX_RETRIES) {
-        try {
-            const result = await model.generateContent(prompt);
-            const response = await result.response;
-            const text = response.text();
-            const jsonMatch = text.match(/\{[\s\S]*\}/);
-
-            if (!jsonMatch) return null;
-            return JSON.parse(jsonMatch[0]) as DealAnalysis;
-        } catch (error: any) {
-            // Check for 429 or other retryable errors
-            if (error?.status === 429 || error?.message?.includes("429")) {
-                attempt++;
-                console.warn(`⚠️ Gemini rate limit (429) for ${sourceName}. Retrying attempt ${attempt}/${MAX_RETRIES} in ${attempt * 2}s...`);
-                await new Promise(resolve => setTimeout(resolve, attempt * 2000)); // Exponential-ish backoff
-                continue;
-            }
-
-            console.error(`Gemini error for ${sourceName}:`, error);
-            return null;
-        }
-    }
-
-    console.error(`❌ Failed to analyze ${sourceName} after ${MAX_RETRIES} attempts due to rate limits.`);
-    return null;
+  console.error(`❌ Failed to analyze ${sourceName} after ${MAX_RETRIES} attempts due to rate limits.`);
+  return null;
 }

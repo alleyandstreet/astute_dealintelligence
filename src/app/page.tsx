@@ -28,9 +28,9 @@ const modules = [
     title: "Market Intelligence",
     description: "Deep Market Trends & Analysis",
     icon: BarChart3,
-    href: "#",
+    href: "/market-intelligence",
     color: "purple",
-    status: "coming_soon",
+    status: "active",
     gradient: "from-purple-500 to-pink-600"
   },
   {
@@ -42,6 +42,7 @@ const modules = [
     status: "active",
     gradient: "from-pink-500 to-rose-500"
   },
+
   {
     title: "Admin Control",
     description: "System Configuration",
@@ -54,10 +55,30 @@ const modules = [
 ];
 
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 export default function HubPage() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/login");
+    }
+  }, [status, router]);
+
   const isAdmin = (session?.user as any)?.role === "super_admin";
+
+  if (status === "loading") {
+    return (
+      <div className="min-h-screen bg-[#050505] flex items-center justify-center">
+        <div className="w-10 h-10 border-4 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (status === "unauthenticated") return null;
 
   return (
     <div className="min-h-screen w-full flex flex-col items-center justify-center p-6 relative overflow-hidden bg-[#050505]">
@@ -88,7 +109,7 @@ export default function HubPage() {
               Astute <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 animate-gradient-x">Intelligence</span>
             </h1>
             <p className="text-zinc-500 text-sm font-mono tracking-widest uppercase">
-              System Operational • v3.0.0
+              System Operational • v4.0.0
             </p>
           </div>
         </div>

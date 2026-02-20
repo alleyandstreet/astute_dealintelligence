@@ -18,7 +18,10 @@ import {
     List,
     Sparkles,
     X,
-    Trash2
+    Trash2,
+    Loader2,
+    Copy,
+    Smartphone
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -45,6 +48,7 @@ import {
 } from "lucide-react";
 import ClientCopyButton from "./ClientCopyButton";
 import DateTimePicker from "@/components/DateTimePicker";
+import { QuickPostActionCenter } from "./QuickPostActionCenter";
 
 interface Post {
     id: string;
@@ -136,6 +140,12 @@ export default function CalendarGrid({ initialPosts }: CalendarGridProps) {
         } finally {
             setLoading(false);
         }
+    };
+
+    const getViewUrl = () => {
+        if (!selectedPost) return "";
+        const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+        return `${baseUrl}/p/${selectedPost.id}`;
     };
 
     const handleUpdate = async () => {
@@ -516,11 +526,11 @@ export default function CalendarGrid({ initialPosts }: CalendarGridProps) {
             {
                 selectedPost && (
                     <div
-                        className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
+                        className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md animate-in fade-in duration-200"
                         onClick={() => setSelectedPost(null)}
                     >
                         <div
-                            className="bg-[#111] border border-white/10 w-full max-w-4xl max-h-[90vh] rounded-3xl overflow-hidden shadow-2xl flex flex-col md:flex-row relative animate-in zoom-in-95 duration-200"
+                            className="bg-[#111] border border-white/10 w-full max-w-4xl max-h-[90vh] rounded-3xl overflow-hidden shadow-[0_0_100px_rgba(0,0,0,1)] flex flex-col md:flex-row relative animate-in zoom-in-95 duration-200"
                             onClick={e => e.stopPropagation()}
                         >
                             <button
@@ -617,6 +627,20 @@ export default function CalendarGrid({ initialPosts }: CalendarGridProps) {
                                     )}
                                 </div>
 
+                                {/* QUICK-POST ACTION CENTER (v2 Enhancement) */}
+                                {selectedPost && (
+                                    <QuickPostActionCenter
+                                        postId={selectedPost.id}
+                                        caption={selectedPost.caption}
+                                        hashtags={selectedPost.hashtags}
+                                        platform={selectedPost.platform}
+                                        mediaUrls={(() => {
+                                            try { return JSON.parse(selectedPost.mediaUrls); }
+                                            catch (e) { return [selectedPost.mediaUrls]; }
+                                        })()}
+                                    />
+                                )}
+
                                 {/* Footer Actions */}
                                 <div className="p-6 border-t border-white/10 bg-[#0a0a0a] flex gap-3 flex-wrap">
                                     {isEditing ? (
@@ -639,44 +663,22 @@ export default function CalendarGrid({ initialPosts }: CalendarGridProps) {
                                         </>
                                     ) : (
                                         <>
-                                            <ClientCopyButton
-                                                text={`${selectedPost.caption}\n\n${selectedPost.hashtags.join(' ')}`}
-                                                label="Caption"
-                                            />
-
-                                            {(() => {
-                                                let urls = [];
-                                                try { urls = JSON.parse(selectedPost.mediaUrls); } catch (e) { urls = [selectedPost.mediaUrls]; }
-                                                if (urls.length > 0) {
-                                                    return (
-                                                        <a
-                                                            href={urls[0]}
-                                                            download
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-xl flex items-center justify-center gap-2 text-sm font-medium transition-colors"
-                                                        >
-                                                            <Download className="w-4 h-4" /> Download
-                                                        </a>
-                                                    )
-                                                }
-                                            })()}
+                                            <button
+                                                onClick={() => setIsEditing(true)}
+                                                className="px-6 py-2 bg-white/5 hover:bg-white/10 text-white rounded-xl flex items-center justify-center gap-2 text-sm font-medium transition-colors border border-white/5"
+                                            >
+                                                <Edit3 className="w-4 h-4 text-zinc-500" /> Edit Details
+                                            </button>
 
                                             <div className="flex-1" />
 
                                             <button
-                                                onClick={() => setIsEditing(true)}
-                                                className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-xl flex items-center justify-center gap-2 text-sm font-medium transition-colors"
-                                            >
-                                                <Edit3 className="w-4 h-4" /> Edit
-                                            </button>
-
-                                            <button
                                                 onClick={handleDelete}
                                                 disabled={loading}
-                                                className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-xl flex items-center justify-center gap-2 text-sm font-medium transition-colors"
+                                                className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-xl flex items-center justify-center gap-2 text-sm font-medium transition-colors border border-red-500/10"
                                             >
                                                 {loading ? <Clock className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                                                Delete
                                             </button>
                                         </>
                                     )}

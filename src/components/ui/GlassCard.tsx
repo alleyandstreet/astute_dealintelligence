@@ -2,10 +2,10 @@
 
 import { cn } from "@/lib/utils";
 import { ReactNode } from "react";
-import { motion } from "framer-motion";
+import { HTMLMotionProps, motion } from "framer-motion";
 
-interface GlassCardProps {
-    children: ReactNode;
+interface GlassCardProps extends HTMLMotionProps<"div"> {
+    children: React.ReactNode;
     className?: string;
     hoverEffect?: boolean;
     intensity?: "low" | "medium" | "high";
@@ -16,6 +16,7 @@ export function GlassCard({
     className,
     hoverEffect = false,
     intensity = "medium",
+    ...props
 }: GlassCardProps) {
     const intensityMap = {
         low: "bg-white/5 border-white/5 backdrop-blur-md",
@@ -25,6 +26,7 @@ export function GlassCard({
 
     return (
         <motion.div
+            {...props}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
