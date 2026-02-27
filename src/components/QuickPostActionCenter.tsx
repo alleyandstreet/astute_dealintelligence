@@ -21,6 +21,7 @@ interface QuickPostActionCenterProps {
     hashtags: string[];
     platform: string;
     mediaUrls: string[]; // Parsed array of URLs
+    currentMediaIndex?: number;
 }
 
 export const QuickPostActionCenter: React.FC<QuickPostActionCenterProps> = ({
@@ -28,7 +29,8 @@ export const QuickPostActionCenter: React.FC<QuickPostActionCenterProps> = ({
     caption,
     hashtags,
     platform,
-    mediaUrls
+    mediaUrls,
+    currentMediaIndex = 0
 }) => {
     const [showQR, setShowQR] = useState(false);
     const [copyingImage, setCopyingImage] = useState(false);
@@ -108,7 +110,8 @@ export const QuickPostActionCenter: React.FC<QuickPostActionCenterProps> = ({
         return `${protocol}//${host}/bridge/${id}`;
     };
 
-    const handleMagicCopy = async (imageUrl: string) => {
+    const handleMagicCopy = async (index: number) => {
+        const imageUrl = mediaUrls[index];
         if (!imageUrl) return;
         setCopyingImage(true);
         try {
@@ -133,7 +136,7 @@ export const QuickPostActionCenter: React.FC<QuickPostActionCenterProps> = ({
                             try {
                                 const data = [new ClipboardItem({ [pngBlob.type]: pngBlob })];
                                 await navigator.clipboard.write(data);
-                                toast.success("Image copied to clipboard!");
+                                toast.success(`Image ${index + 1} copied to clipboard!`);
                             } catch (err) {
                                 console.error("Clipboard write error:", err);
                                 toast.error("Failed to copy image to clipboard");
@@ -202,24 +205,44 @@ export const QuickPostActionCenter: React.FC<QuickPostActionCenterProps> = ({
                         </button>
                         {mediaUrls.length > 0 && (
                             <a
-                                href={mediaUrls[0]}
-                                download
+                                href={mediaUrls[currentMediaIndex]}
+                                download={`media-${currentMediaIndex + 1}`}
                                 target="_blank"
                                 className="px-3 py-2.5 bg-white/5 hover:bg-white/10 text-white rounded-xl flex items-center justify-center gap-2 text-xs font-bold transition-all border border-white/5 active:scale-95"
                             >
-                                <Download className="w-3.5 h-3.5" /> Media
+                                <Download className="w-3.5 h-3.5" /> Media {mediaUrls.length > 1 ? currentMediaIndex + 1 : ""}
                             </a>
                         )}
                     </div>
-                    {mediaUrls.length > 0 && !mediaUrls[0].endsWith('.mp4') && (
+                    {mediaUrls.length > 0 && !mediaUrls[currentMediaIndex]?.endsWith('.mp4') && (
                         <button
-                            onClick={() => handleMagicCopy(mediaUrls[0])}
+                            onClick={() => handleMagicCopy(currentMediaIndex)}
                             disabled={copyingImage}
                             className="w-full px-4 py-2.5 bg-pink-500/10 hover:bg-pink-500/20 text-pink-500 rounded-xl flex items-center justify-center gap-2 text-xs font-black uppercase tracking-widest transition-all border border-pink-500/20 active:scale-[0.98]"
                         >
                             {copyingImage ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                            Magic Copy Photo
+                            Magic Copy Photo {mediaUrls.length > 1 ? currentMediaIndex + 1 : ""}
                         </button>
+                    )}
+
+                    {mediaUrls.length > 1 && (
+                        <div className="pt-2">
+                            <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-[0.1em] mb-2">All Assets ({mediaUrls.length})</p>
+                            <div className="flex flex-wrap gap-2">
+                                {mediaUrls.map((url, i) => (
+                                    <a
+                                        key={i}
+                                        href={url}
+                                        download={`media-${i + 1}`}
+                                        target="_blank"
+                                        className={`w-8 h-8 rounded-lg border flex items-center justify-center text-[10px] font-bold transition-all ${i === currentMediaIndex ? "bg-white text-black border-white shadow-lg" : "bg-white/5 text-zinc-400 border-white/10 hover:bg-white/10"}`}
+                                        title={`Download Media ${i + 1}`}
+                                    >
+                                        {i + 1}
+                                    </a>
+                                ))}
+                            </div>
+                        </div>
                     )}
                 </div>
 

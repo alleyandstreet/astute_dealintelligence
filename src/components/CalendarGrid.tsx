@@ -70,6 +70,7 @@ export default function CalendarGrid({ initialPosts }: CalendarGridProps) {
     const [selectedPost, setSelectedPost] = useState<Post | null>(null);
     const [isEditing, setIsEditing] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
 
     // Edit State
     const [editCaption, setEditCaption] = useState("");
@@ -115,6 +116,7 @@ export default function CalendarGrid({ initialPosts }: CalendarGridProps) {
         setEditHashtags(post.hashtags.join(" "));
         setEditDate(new Date(post.scheduledFor));
         setIsEditing(false);
+        setCurrentMediaIndex(0);
     };
 
     const handleDelete = async () => {
@@ -541,18 +543,46 @@ export default function CalendarGrid({ initialPosts }: CalendarGridProps) {
                             </button>
 
                             {/* LEFT: Media Viewer */}
-                            <div className="w-full md:w-1/2 bg-black flex items-center justify-center relative border-b md:border-b-0 md:border-r border-white/10 min-h-[300px]">
+                            <div className="w-full md:w-1/2 bg-black flex items-center justify-center relative border-b md:border-b-0 md:border-r border-white/10 min-h-[400px]">
                                 {(() => {
                                     let urls = [];
                                     try { urls = JSON.parse(selectedPost.mediaUrls); } catch (e) { urls = [selectedPost.mediaUrls]; }
-                                    const url = urls[0];
+                                    const url = urls[currentMediaIndex];
 
                                     return url ? (
-                                        url.endsWith('.mp4') ? (
-                                            <video src={url} controls className="max-w-full max-h-[80vh] w-auto h-auto" />
-                                        ) : (
-                                            <img src={url} alt="Full view" className="max-w-full max-h-[80vh] w-auto h-auto object-contain" />
-                                        )
+                                        <div className="w-full h-full flex items-center justify-center relative group">
+                                            {url.endsWith('.mp4') ? (
+                                                <video src={url} controls className="max-w-full max-h-[80vh] w-auto h-auto" />
+                                            ) : (
+                                                <img src={url} alt={`Media ${currentMediaIndex + 1}`} className="max-w-full max-h-[80vh] w-auto h-auto object-contain" />
+                                            )}
+
+                                            {urls.length > 1 && (
+                                                <>
+                                                    <button
+                                                        onClick={() => setCurrentMediaIndex((prev) => (prev - 1 + urls.length) % urls.length)}
+                                                        className="absolute left-4 top-1/2 -translate-y-1/2 p-2 bg-black/50 hover:bg-black/80 text-white rounded-full transition-all opacity-0 group-hover:opacity-100"
+                                                    >
+                                                        <ChevronLeft className="w-5 h-5" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setCurrentMediaIndex((prev) => (prev + 1) % urls.length)}
+                                                        className="absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-black/50 hover:bg-black/80 text-white rounded-full transition-all opacity-0 group-hover:opacity-100"
+                                                    >
+                                                        <ChevronRight className="w-5 h-5" />
+                                                    </button>
+
+                                                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 px-3 py-1.5 bg-black/40 backdrop-blur-md rounded-full">
+                                                        {urls.map((_: string, i: number) => (
+                                                            <div
+                                                                key={i}
+                                                                className={`w-1.5 h-1.5 rounded-full transition-all ${i === currentMediaIndex ? "bg-white scale-125" : "bg-white/30"}`}
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                </>
+                                            )}
+                                        </div>
                                     ) : (
                                         <div className="text-zinc-500 flex flex-col items-center">
                                             <ImageIcon className="w-16 h-16 mb-4 opacity-20" />
@@ -634,6 +664,7 @@ export default function CalendarGrid({ initialPosts }: CalendarGridProps) {
                                         caption={selectedPost.caption}
                                         hashtags={selectedPost.hashtags}
                                         platform={selectedPost.platform}
+                                        currentMediaIndex={currentMediaIndex}
                                         mediaUrls={(() => {
                                             try { return JSON.parse(selectedPost.mediaUrls); }
                                             catch (e) { return [selectedPost.mediaUrls]; }

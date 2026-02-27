@@ -9,7 +9,8 @@ export async function DELETE(
 ) {
     try {
         const session = await getServerSession(authOptions);
-        if (!session?.user?.email) {
+        const userId = (session?.user as any)?.id;
+        if (!userId) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
@@ -18,15 +19,14 @@ export async function DELETE(
 
         // Verify ownership
         const post = await db.scheduledPost.findUnique({
-            where: { id },
-            include: { user: true }
+            where: { id }
         });
 
         if (!post) {
             return NextResponse.json({ error: "Post not found" }, { status: 404 });
         }
 
-        if (post.user.email !== session.user.email) {
+        if (post.userId !== userId) {
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
@@ -72,7 +72,8 @@ export async function PATCH(
 ) {
     try {
         const session = await getServerSession(authOptions);
-        if (!session?.user?.email) {
+        const userId = (session?.user as any)?.id;
+        if (!userId) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
@@ -82,15 +83,14 @@ export async function PATCH(
 
         // Verify ownership
         const post = await db.scheduledPost.findUnique({
-            where: { id },
-            include: { user: true }
+            where: { id }
         });
 
         if (!post) {
             return NextResponse.json({ error: "Post not found" }, { status: 404 });
         }
 
-        if (post.user.email !== session.user.email) {
+        if (post.userId !== userId) {
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
