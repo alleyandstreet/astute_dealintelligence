@@ -21,7 +21,19 @@ export default withAuth(
 );
 
 export const config = {
+    // Current matcher protects everything EXCEPT the ones listed.
+    // We'll keep the current structure but ensure all sensitive API routes are NOT in the exclusion list.
+    // Actually, a cleaner "secure-by-default" approach is to list what's PUBLIC.
     matcher: [
-        "/((?!login|bridge|p|api/auth|api/scan|api/handoff|api/instagram/schedule|_next/static|_next/image|favicon.ico|.*\\.).*)",
+        /*
+         * Match all request paths except for the ones starting with:
+         * - login (sign in page)
+         * - api/auth (NextAuth endpoints)
+         * - _next/static (static files)
+         * - _next/image (image optimization files)
+         * - favicon.ico (favicon file)
+         * - public assets
+         */
+        "/((?!login|api/auth|_next/static|_next/image|favicon.ico|uploads|.*\\.).*)",
     ],
 };

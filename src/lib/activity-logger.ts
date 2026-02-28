@@ -18,7 +18,12 @@ export type ActivityAction =
     | "user_updated"
     | "user_deleted"
     | "copy_caption"
-    | "copy_outreach";
+    | "copy_outreach"
+    | "copy_image"
+    | "handoff_prepared"
+    | "unified_feedback"
+    | "unified_scan_started"
+    | "unified_scan_completed";
 
 interface LogActivityParams {
     userId: string;

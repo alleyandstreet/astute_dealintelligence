@@ -1,8 +1,9 @@
-import { NextAuthOptions } from "next-auth";
+import { NextAuthOptions, getServerSession } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { db } from "./db";
 import { verifyPassword } from "./password";
 import { logActivity } from "./activity-logger";
+import { NextResponse } from "next/server";
 
 export const authOptions: NextAuthOptions = {
     providers: [
@@ -87,3 +88,17 @@ export const authOptions: NextAuthOptions = {
         }
     }
 };
+
+/**
+ * Helper to require authentication in API routes.
+ * Returns the session if authenticated, or a 401 response if not.
+ */
+export async function requireAuth() {
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user) {
+        return { session: null, response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
+    }
+    
+    return { session, response: null };
+}

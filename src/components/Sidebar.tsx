@@ -76,7 +76,6 @@ const navItems: NavItem[] = [
 
 
     { href: "/deals", label: "Deals", icon: Briefcase },
-    { href: "/marketing/outliner", label: "Script Lab", icon: Zap },
     { href: "/pipeline", label: "Pipeline", icon: Kanban },
     { href: "/team-chat", label: "Team Chat", icon: MessageCircle },
     { href: "/support", label: "Support", icon: HelpCircle },

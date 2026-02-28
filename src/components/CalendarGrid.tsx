@@ -71,6 +71,7 @@ export default function CalendarGrid({ initialPosts }: CalendarGridProps) {
     const [isEditing, setIsEditing] = useState(false);
     const [loading, setLoading] = useState(false);
     const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
+    const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
 
     // Edit State
     const [editCaption, setEditCaption] = useState("");
@@ -117,11 +118,15 @@ export default function CalendarGrid({ initialPosts }: CalendarGridProps) {
         setEditDate(new Date(post.scheduledFor));
         setIsEditing(false);
         setCurrentMediaIndex(0);
+        setIsConfirmingDelete(false);
     };
 
     const handleDelete = async () => {
         if (!selectedPost) return;
-        if (!confirm("Are you sure you want to delete this post?")) return;
+        if (!isConfirmingDelete) {
+            setIsConfirmingDelete(true);
+            return;
+        }
 
         setLoading(true);
         try {
@@ -135,10 +140,11 @@ export default function CalendarGrid({ initialPosts }: CalendarGridProps) {
                 setSelectedPost(null);
                 router.refresh();
             } else {
-                toast.error("Failed to delete post");
+                const data = await res.json();
+                toast.error(data.error || "Failed to delete post");
             }
-        } catch (e) {
-            toast.error("Error deleting post");
+        } catch (e: any) {
+            toast.error(e.message || "Error deleting post");
         } finally {
             setLoading(false);
         }
@@ -706,11 +712,23 @@ export default function CalendarGrid({ initialPosts }: CalendarGridProps) {
                                             <button
                                                 onClick={handleDelete}
                                                 disabled={loading}
-                                                className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-xl flex items-center justify-center gap-2 text-sm font-medium transition-colors border border-red-500/10"
+                                                className={`px-4 py-2 rounded-xl flex items-center justify-center gap-2 text-sm font-medium transition-all border ${isConfirmingDelete
+                                                    ? "bg-red-500 text-white border-red-500 shadow-lg shadow-red-900/20"
+                                                    : "bg-red-500/10 hover:bg-red-500/20 text-red-500 border-red-500/10"
+                                                    }`}
                                             >
                                                 {loading ? <Clock className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                                                Delete
+                                                {isConfirmingDelete ? "Click again to confirm" : "Delete"}
                                             </button>
+
+                                            {isConfirmingDelete && (
+                                                <button
+                                                    onClick={() => setIsConfirmingDelete(false)}
+                                                    className="px-4 py-2 text-zinc-500 hover:text-white text-sm font-medium transition-colors"
+                                                >
+                                                    Cancel
+                                                </button>
+                                            )}
                                         </>
                                     )}
                                 </div>

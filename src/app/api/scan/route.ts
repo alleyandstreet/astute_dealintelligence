@@ -2,12 +2,14 @@ import { scanReddit } from "@/lib/scanners/reddit";
 import { scanProductHunt } from "@/lib/scanners/producthunt";
 import { scanIndieHustle } from "@/lib/scanners/indiehustle";
 import { scanIndieHackers } from "@/lib/scanners/indiehackers";
-import { NextRequest } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { NextRequest, NextResponse } from "next/server";
+import { requireAuth } from "@/lib/auth";
 import { logActivity } from "@/lib/activity-logger";
 
 export async function POST(request: NextRequest) {
+    const { session, response } = await requireAuth();
+    if (response) return response;
+
     const encoder = new TextEncoder();
 
     const stream = new ReadableStream({
@@ -24,7 +26,6 @@ export async function POST(request: NextRequest) {
                 const platform: string = body.platform || "reddit";
                 const minRevenue: number = body.minRevenue ? parseInt(body.minRevenue) : 0;
 
-                const session = await getServerSession(authOptions);
                 if (session?.user) {
                     await logActivity({
                         userId: (session.user as any).id,
@@ -44,9 +45,9 @@ export async function POST(request: NextRequest) {
                 }
 
             } catch (error) {
-                send({ type: "error", message: `Scan failed: ${error}` });
+                console.error("Scan error:", error);
+                send({ type: "error", message: "Scan failed. Please try again later." });
             } finally {
-                const session = await getServerSession(authOptions);
                 if (session?.user) {
                     await logActivity({
                         userId: (session.user as any).id,

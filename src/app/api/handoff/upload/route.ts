@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { writeFile } from "fs/promises";
 import { join } from "path";
+import { requireAuth } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
+    const { response } = await requireAuth();
+    if (response) return response;
+
     try {
         const formData = await req.formData();
         const files = formData.getAll("files") as File[];
