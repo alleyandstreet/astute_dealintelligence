@@ -47,7 +47,7 @@ export default function MobilePostHandoff() {
     };
 
     const handleCopy = () => {
-        const text = `${post.caption}\n\n${post.hashtags.join(' ')}`;
+        const text = `${post.caption}\n\n${post.hashtags?.map((t: string) => `#${t}`).join(' ') || ""}`;
         navigator.clipboard.writeText(text);
         setCopied(true);
         toast.success("Caption copied to clipboard!");

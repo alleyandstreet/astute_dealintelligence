@@ -15,7 +15,10 @@ import {
     Smartphone,
     X,
     Clock,
-    AlertCircle
+    AlertCircle,
+    ChevronLeft,
+    ChevronRight,
+    Layers
 } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -26,10 +29,34 @@ export default function StandalonePopOutBridge() {
     const [post, setPost] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [copied, setCopied] = useState(false);
+    const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
 
     useEffect(() => {
         fetchPost();
     }, [id]);
+
+    let mediaUrls: string[] = [];
+    try {
+        if (post?.mediaUrls) {
+            mediaUrls = JSON.parse(post.mediaUrls);
+        }
+    } catch (e) {
+        mediaUrls = Array.isArray(post?.mediaUrls) ? post.mediaUrls : post?.mediaUrls ? [post.mediaUrls] : [];
+    }
+    mediaUrls = mediaUrls.filter((url: string) => !!url);
+
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === "ArrowLeft") {
+                setCurrentMediaIndex(prev => (prev > 0 ? prev - 1 : mediaUrls.length - 1));
+            } else if (e.key === "ArrowRight") {
+                setCurrentMediaIndex(prev => (prev < mediaUrls.length - 1 ? prev + 1 : 0));
+            }
+        };
+
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [mediaUrls.length]);
 
     const fetchPost = async () => {
         try {
@@ -86,6 +113,25 @@ export default function StandalonePopOutBridge() {
         setTimeout(() => setCopied(false), 2000);
     };
 
+    const downloadMedia = (url: string, index: number) => {
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `media-${index + 1}`;
+        link.target = "_blank";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    const handleDownloadAll = () => {
+        mediaUrls.forEach((url: string, index: number) => {
+            setTimeout(() => {
+                downloadMedia(url, index);
+            }, index * 200); // Stagger downloads to avoid browser blocking
+        });
+        toast.success(`Starting download of ${mediaUrls.length} assets...`);
+    };
+
 
     if (loading) {
         return (
@@ -109,13 +155,6 @@ export default function StandalonePopOutBridge() {
         );
     }
 
-    let mediaUrls = [];
-    try {
-        mediaUrls = JSON.parse(post.mediaUrls);
-    } catch (e) {
-        mediaUrls = Array.isArray(post.mediaUrls) ? post.mediaUrls : [post.mediaUrls];
-    }
-    mediaUrls = mediaUrls.filter((url: string) => !!url);
 
     const platform = post.platform?.toLowerCase() || 'instagram';
     const platformColors: Record<string, string> = {
@@ -145,26 +184,99 @@ export default function StandalonePopOutBridge() {
 
                 <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.1 }} className="bg-[#0c0c0e] border border-white/5 rounded-[2.5rem] overflow-hidden shadow-[0_20px_50px_-10px_rgba(0,0,0,0.8)] relative">
                     <div className="relative aspect-square bg-[#050505] flex items-center justify-center overflow-hidden">
-                        {mediaUrls[0] ? (
-                            <div className="w-full h-full">
-                                {mediaUrls[0].endsWith('.mp4') ? (
-                                    <video src={mediaUrls[0]} controls className="w-full h-full object-contain" />
+                        <AnimatePresence mode="wait">
+                            <motion.div
+                                key={currentMediaIndex}
+                                initial={{ opacity: 0, x: 20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: -20 }}
+                                drag="x"
+                                dragConstraints={{ left: 0, right: 0 }}
+                                dragElastic={0.4}
+                                onDragEnd={(_, info) => {
+                                    if (info.offset.x < -50) {
+                                        // Swipe Left -> Next
+                                        setCurrentMediaIndex(prev => (prev < mediaUrls.length - 1 ? prev + 1 : 0));
+                                    } else if (info.offset.x > 50) {
+                                        // Swipe Right -> Prev
+                                        setCurrentMediaIndex(prev => (prev > 0 ? prev - 1 : mediaUrls.length - 1));
+                                    }
+                                }}
+                                className="w-full h-full cursor-grab active:cursor-grabbing touch-none"
+                            >
+                                {mediaUrls[currentMediaIndex] ? (
+                                    <div className="w-full h-full">
+                                        {mediaUrls[currentMediaIndex].endsWith('.mp4') ? (
+                                            <video src={mediaUrls[currentMediaIndex]} controls className="w-full h-full object-contain" />
+                                        ) : (
+                                            <img src={mediaUrls[currentMediaIndex]} alt="Post" className="w-full h-full object-contain p-2" />
+                                        )}
+                                    </div>
                                 ) : (
-                                    <img src={mediaUrls[0]} alt="Post" className="w-full h-full object-contain p-2" />
+                                    <div className="p-12 text-center text-zinc-800">
+                                        <Sparkles className="w-12 h-12 mx-auto mb-4 opacity-10" />
+                                        <p className="text-[10px] uppercase font-black italic">Asset Missing</p>
+                                    </div>
                                 )}
-                            </div>
-                        ) : (
-                            <div className="p-12 text-center text-zinc-800">
-                                <Sparkles className="w-12 h-12 mx-auto mb-4 opacity-10" />
-                                <p className="text-[10px] uppercase font-black italic">Asset Missing</p>
+                            </motion.div>
+                        </AnimatePresence>
+
+                        {/* Navigation Arrows */}
+                        {mediaUrls.length > 1 && (
+                            <>
+                                <button
+                                    onClick={() => setCurrentMediaIndex(prev => (prev > 0 ? prev - 1 : mediaUrls.length - 1))}
+                                    className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center z-20 active:scale-90 transition-transform"
+                                >
+                                    <ChevronLeft className="w-5 h-5 text-white" />
+                                </button>
+                                <button
+                                    onClick={() => setCurrentMediaIndex(prev => (prev < mediaUrls.length - 1 ? prev + 1 : 0))}
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center z-20 active:scale-90 transition-transform"
+                                >
+                                    <ChevronRight className="w-5 h-5 text-white" />
+                                </button>
+
+                                {/* Image Counter Indicator */}
+                                <div className="absolute top-4 right-4 px-3 py-1.5 rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-[10px] font-black tracking-widest text-white z-10">
+                                    {currentMediaIndex + 1} / {mediaUrls.length}
+                                </div>
+                            </>
+                        )}
+
+                        {/* Dots Indicator */}
+                        {mediaUrls.length > 1 && (
+                            <div className="absolute bottom-24 inset-x-0 flex justify-center gap-1.5 z-10">
+                                {mediaUrls.map((_: any, i: number) => (
+                                    <div
+                                        key={i}
+                                        className={`h-1 rounded-full transition-all duration-300 ${i === currentMediaIndex ? "w-6 bg-cyan-500" : "w-1.5 bg-white/20"}`}
+                                    />
+                                ))}
                             </div>
                         )}
 
-                        {mediaUrls[0] && (
-                            <div className="absolute inset-x-0 bottom-0 p-6 pt-16 bg-gradient-to-t from-black via-black/70 to-transparent">
-                                <motion.a whileTap={{ scale: 0.96 }} href={mediaUrls[0]} download target="_blank" className="w-full py-4 bg-white text-black rounded-2xl flex items-center justify-center gap-2 font-black text-[10px] uppercase tracking-widest shadow-2xl hover:bg-zinc-100 transition-all ring-4 ring-black/40">
-                                    <Download className="w-5 h-5" /> Save Media
-                                </motion.a>
+                        {mediaUrls[currentMediaIndex] && (
+                            <div className="absolute inset-x-0 bottom-0 p-6 pt-16 bg-gradient-to-t from-black via-black/70 to-transparent z-10">
+                                <div className="flex flex-col gap-2">
+                                    <motion.button
+                                        whileTap={{ scale: 0.96 }}
+                                        onClick={() => downloadMedia(mediaUrls[currentMediaIndex], currentMediaIndex)}
+                                        className="w-full py-4 bg-white text-black rounded-2xl flex items-center justify-center gap-2 font-black text-[10px] uppercase tracking-widest shadow-2xl hover:bg-zinc-100 transition-all ring-4 ring-black/40"
+                                    >
+                                        <Download className="w-5 h-5" /> Save Media {mediaUrls.length > 1 ? `#${currentMediaIndex + 1}` : ""}
+                                    </motion.button>
+
+                                    {mediaUrls.length > 1 && (
+                                        <motion.button
+                                            whileTap={{ scale: 0.96 }}
+                                            onClick={handleDownloadAll}
+                                            className="w-full py-4 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-500 border border-cyan-500/20 rounded-2xl flex items-center justify-center gap-2 font-black text-[10px] uppercase tracking-widest transition-all"
+                                        >
+                                            <Layers className="w-5 h-5" /> Download All Assets ({mediaUrls.length})
+                                        </motion.button>
+                                    )}
+                                </div>
                             </div>
                         )}
                     </div>
@@ -172,7 +284,7 @@ export default function StandalonePopOutBridge() {
                     <div className="p-7 space-y-7 bg-gradient-to-b from-[#0c0c0e] to-black">
                         <div className="space-y-4 text-center sm:text-left">
                             <div className="w-8 h-1 bg-zinc-800 rounded-full mx-auto sm:mx-0" />
-                            <p className="text-sm text-zinc-400 leading-relaxed font-medium">
+                            <p className="text-sm text-zinc-400 leading-relaxed font-medium whitespace-pre-wrap text-center sm:text-left">
                                 {post.caption}
                             </p>
                             <div className="flex flex-wrap justify-center sm:justify-start gap-2">

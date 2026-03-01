@@ -110,6 +110,19 @@ export const QuickPostActionCenter: React.FC<QuickPostActionCenterProps> = ({
         return `${protocol}//${host}/bridge/${id}`;
     };
 
+    const handleDownloadAll = () => {
+        mediaUrls.forEach((url, index) => {
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `media-${index + 1}`;
+            link.target = "_blank";
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        });
+        toast.success(`Downloading ${mediaUrls.length} assets...`);
+    };
+
     const handleMagicCopy = async (index: number) => {
         const imageUrl = mediaUrls[index];
         if (!imageUrl) return;
@@ -212,6 +225,14 @@ export const QuickPostActionCenter: React.FC<QuickPostActionCenterProps> = ({
                             >
                                 <Download className="w-3.5 h-3.5" /> Media {mediaUrls.length > 1 ? currentMediaIndex + 1 : ""}
                             </a>
+                        )}
+                        {mediaUrls.length > 1 && (
+                            <button
+                                onClick={handleDownloadAll}
+                                className="col-span-2 px-3 py-2.5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-500 rounded-xl flex items-center justify-center gap-2 text-xs font-black uppercase tracking-widest transition-all border border-cyan-500/20 active:scale-[0.98]"
+                            >
+                                <Download className="w-3.5 h-3.5" /> Download All ({mediaUrls.length})
+                            </button>
                         )}
                     </div>
                     {mediaUrls.length > 0 && !mediaUrls[currentMediaIndex]?.endsWith('.mp4') && (
