@@ -2,10 +2,24 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // Gemini client - will use GEMINI_API_KEY from environment
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-const MODEL_NAME = "gemini-flash-latest"; // Confirmed working model
-export const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+// Model gemini-2.5-flash is confirmed available and working with the new 'googleSearch' tool name
+const MODEL_NAME = "gemini-2.5-flash";
 
-// ... (Existing interfaces) ...
+export const model = genAI.getGenerativeModel({
+  model: MODEL_NAME,
+  tools: [
+    {
+      // @ts-ignore - Using the updated Google Search tool name for newer Gemini versions
+      googleSearch: {
+        // Dynamic retrieval is optional but helps with accuracy
+        /* dynamicRetrievalConfig: {
+          mode: "DYNAMIC",
+          dynamicThreshold: 0.3
+        } */
+      }
+    }
+  ] as any
+}, { apiVersion: "v1beta" });
 
 // ==========================================
 // MARKET INTELLIGENCE ANALYSIS
@@ -175,10 +189,7 @@ export interface MarketAnalysis {
   }[];
 }
 
-// Helper to rename growth_trend to base_case for legacy compatibility if needed, 
-// but we will just use the new structure.
 export async function analyzeMarketTrends(content: string): Promise<MarketAnalysis | null> {
-  // Simulate a slight delay for the "Live Search" feeling if needed, but the prompt does the heavy lifting.
   return runGenericAnalysis<MarketAnalysis>(MARKET_ANALYSIS_PROMPT, { content }, "MarketAnalysis");
 }
 
@@ -195,7 +206,6 @@ Keep answers concise, professional, and dense with information.
 
 export async function chatWithAnalyst(analysisContext: any, history: { role: string, content: string }[], userMessage: string): Promise<string> {
   try {
-    // Reuse the working model instance
     const chat = model.startChat({
       history: history.map(h => ({
         role: h.role === 'user' ? 'user' : 'model',
@@ -214,7 +224,6 @@ export async function chatWithAnalyst(analysisContext: any, history: { role: str
     return "I'm having trouble accessing my notes right now. Please ask again.";
   }
 }
-
 
 export interface DealAnalysis {
   business_name: string;
@@ -303,7 +312,6 @@ export async function analyzePost(
     const response = await result.response;
     const text = response.text();
 
-    // Extract JSON from response (handling potential markdown)
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       console.error("No JSON found in Gemini response");
@@ -477,8 +485,6 @@ export async function analyzeProductHuntListing(
     console.log(`✅ Successfully parsed JSON`);
     console.log(`ProductHunt Analysis for "${title}": Quality=${analysis.deal_quality}, Viability=${analysis.viability_score}`);
 
-    // Very generous threshold - only reject obvious non-businesses
-    // Threshold of 20 means we capture almost everything
     if (analysis.deal_quality < 20) {
       console.log(`❌ Rejected low quality (${analysis.deal_quality}/100) for: ${title}`);
       return null;
@@ -604,13 +610,6 @@ export async function analyzeIndieHustleListing(
     console.log(`✅ Successfully parsed JSON`);
     console.log(`IndieHustle Analysis for "${title}": Quality=${analysis.deal_quality}, Viability=${analysis.viability_score}`);
 
-    // Generous threshold - capture most opportunities
-    // if (analysis.deal_quality < 20) {
-    //    console.log(`❌ Rejected low quality (${analysis.deal_quality}/100) for: ${title}`);
-    //    return null;
-    // }
-
-
     console.log(`✅ Analysis passed quality check (${analysis.deal_quality}/100) (Threshold disabled to capture all)\n`);
     return analysis;
   } catch (error) {
@@ -622,7 +621,6 @@ export async function analyzeIndieHustleListing(
     return null;
   }
 }
-
 
 // ==========================================
 // INDIE HACKERS ANALYSIS
@@ -664,7 +662,6 @@ const INDIEHACKERS_ANALYSIS_PROMPT = `You are an acquisition scout looking at an
 export async function analyzeIndieHackersPost(title: string, content: string, author: string): Promise<DealAnalysis | null> {
   return runGenericAnalysis<DealAnalysis>(INDIEHACKERS_ANALYSIS_PROMPT, { title, content, author }, "IndieHackers");
 }
-
 
 // ==========================================
 // GENERAL TREND ANALYSIS
@@ -718,6 +715,189 @@ export async function generateGeneralTrends(): Promise<TrendWatchResponse | null
   return runGenericAnalysis<TrendWatchResponse>(TREND_WATCH_PROMPT, {}, "GeneralTrendWatch");
 }
 
+// ==========================================
+// PRODUCT HUNT GROUNDED SCRAPING
+// ==========================================
+
+export interface ProductHuntGroundedListing {
+  name: string;
+  tagline: string;
+  upvotes: number;
+  productHuntUrl: string;
+  productWebsiteUrl: string;
+  makerNames: string[];
+  contactLinks: {
+    twitter?: string;
+    linkedin?: string;
+    website?: string;
+    email?: string;
+  };
+  categories: string[];
+}
+
+const PH_GROUNDED_PROMPT = `You are a specialized data extraction agent. 
+Your task is to scrape and extract EVERY Product Hunt listing for a specific date using Google Search grounding.
+
+Target Date: {date}
+Target URL: https://www.producthunt.com/leaderboard/daily/{date_url}
+
+IMPORTANT: Product Hunt leaderboards typically contain 30-50+ products. You MUST extract more than just the top 5. 
+
+INSTRUCTIONS:
+1. Use Google Search grounding to access the "Product Hunt Daily Leaderboard" for the target date: {date}.
+2. CROSS-VERIFICATION REQUIRED: Search results often display "stale" upvote counts from early in the day. You MUST verify the FINAL total count.
+3. TRIPLE-CHECK TOP PRODUCTS: For the top 5-10 products (like "Aident AI", "MacBook Neo", "Heywa"), do not trust a single source. Look for the "Finished" rank and the total "Upvoted" count shown on the leaderboard archives at producthunt.com/leaderboard/daily/{date_url}.
+4. SPECIFIC SEARCHES: If a count feels low (e.g., under 300 for a #1 product), proactively search for "[Product Name] Product Hunt upvotes total [Date]".
+5. DATA EXTRACTION:
+   - Full Name
+   - Tagline / Description
+   - Upvote Count (integer) - CRITICAL: Must be the total final count for that day.
+   - Product Hunt URL
+   - Actual Product Website URL
+   - Names of the Makers/Founders
+   - Contact links for the makers (Twitter/X, LinkedIn, Personal Website, Email)
+   - Categories/Tags
+6. Filter out any products that have FEWER than {min_upvotes} upvotes.
+7. If {max_upvotes} is greater than 0, filter out any products that have MORE than {max_upvotes} upvotes.
+
+Return ONLY a valid JSON object. Do not include any pre-amble, chatter, or markdown outside the code block.
+
+Structure:
+\`\`\`json
+{
+  "date": "{date}",
+  "sourceDate": "{date}",
+  "total_found": number,
+  "verification_status": "triple_checked",
+  "products": [
+    {
+      "name": "string",
+      "tagline": "string",
+      "upvotes": number,
+      "productHuntUrl": "string",
+      "productWebsiteUrl": "string",
+      "makerNames": ["string"],
+      "contactLinks": {
+        "twitter": "string",
+        "linkedin": "string",
+        "website": "string",
+        "email": "string"
+      },
+      "categories": ["string"]
+    }
+  ]
+}
+\`\`\`
+STRICT: The Upvote Count MUST be an integer representing the final total. If you see multiple versions, pick the HIGHEST confirmed one.`;
+
+const PH_GROUNDED_STRICT_APPENDIX = `
+CRITICAL DATE GUARANTEE:
+- You must confirm the leaderboard page date matches {date}.
+- If you cannot verify the date or the leaderboard page for {date_url} does not exist, return:
+  { "date": "{date}", "sourceDate": "{date}", "total_found": 0, "verification_status": "date_not_found", "products": [] }
+- Do NOT reuse today's leaderboard for past or future dates.
+`;
+
+export async function scrapeProductHuntWithGrounding(
+  date: string,
+  minUpvotes: number,
+  maxUpvotes: number
+): Promise<{ date: string; total_found: number; products: ProductHuntGroundedListing[] } | null> {
+  if (!process.env.GEMINI_API_KEY) return null;
+
+  const d = new Date(date);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const dateStr = `${year}/${month}/${day}`;
+
+  const buildPrompt = (strict: boolean) =>
+    (PH_GROUNDED_PROMPT + (strict ? PH_GROUNDED_STRICT_APPENDIX : ""))
+      .replace(/{date}/g, date)
+      .replace(/{date_url}/g, dateStr)
+      .replace(/{min_upvotes}/g, minUpvotes.toString())
+      .replace(/{max_upvotes}/g, maxUpvotes.toString());
+
+  const MAX_RETRIES = 2;
+  let attempt = 0;
+
+  let strictMode = false;
+  while (attempt < MAX_RETRIES) {
+    try {
+      console.log(`[DEBUG] Prompting Gemini PH Grounding (Attempt ${attempt + 1}): ${dateStr}`);
+      const result = await model.generateContent(buildPrompt(strictMode));
+      const response = await result.response;
+      const text = response.text();
+
+      console.log("[DEBUG] Raw Grounded PH Response Length:", text.length);
+
+      // Robust JSON extraction: Find the first { or [ and the last } or ]
+      const firstBrace = text.indexOf("{");
+      const lastBrace = text.lastIndexOf("}");
+      const firstBracket = text.indexOf("[");
+      const lastBracket = text.lastIndexOf("]");
+
+      let cleanJson = "";
+      // Case 1: Markdown JSON block (most reliable)
+      const mdMatch = text.match(/```json\s*([\s\S]*?)\s*```/);
+      if (mdMatch) {
+        cleanJson = mdMatch[1];
+      } else if (firstBrace !== -1 && lastBrace !== -1 && (firstBracket === -1 || firstBrace < firstBracket)) {
+        // Case 2: Standard object
+        cleanJson = text.slice(firstBrace, lastBrace + 1);
+      } else if (firstBracket !== -1 && lastBracket !== -1) {
+        // Case 3: Bare array
+        cleanJson = text.slice(firstBracket, lastBracket + 1);
+      }
+
+      if (!cleanJson) {
+        console.warn(`[WARN] No JSON structure found in response on attempt ${attempt + 1}.`);
+        attempt++;
+        continue;
+      }
+
+      try {
+        let parsed = JSON.parse(cleanJson);
+        // If it's an array, wrap it in the expected object structure
+        if (Array.isArray(parsed)) {
+          parsed = { date, total_found: parsed.length, products: parsed };
+        }
+
+        if (parsed && parsed.products) {
+          const parsedDate = typeof parsed.date === "string" ? parsed.date : "";
+          const parsedSourceDate = typeof parsed.sourceDate === "string" ? parsed.sourceDate : "";
+          if (parsedDate && parsedDate !== date) {
+            console.warn(`[WARN] Grounded PH date mismatch: expected ${date}, got ${parsedDate}. Retrying strict mode.`);
+            strictMode = true;
+            attempt++;
+            continue;
+          }
+          if (parsedSourceDate && parsedSourceDate !== date) {
+            console.warn(`[WARN] Grounded PH sourceDate mismatch: expected ${date}, got ${parsedSourceDate}. Retrying strict mode.`);
+            strictMode = true;
+            attempt++;
+            continue;
+          }
+          return parsed;
+        }
+        console.warn("[WARN] Parsed JSON missing 'products' field.");
+      } catch (parseError) {
+        console.error("JSON Parse Error in Grounded PH:", parseError);
+      }
+
+      attempt++;
+    } catch (error: any) {
+      console.error(`Grounded PH Scrape Error (Attempt ${attempt + 1}):`, error.message || error);
+      attempt++;
+      if (attempt < MAX_RETRIES) {
+        await new Promise(resolve => setTimeout(resolve, 3000));
+      }
+    }
+  }
+
+  return null;
+}
+
 //Helper to avoid code duplication
 async function runGenericAnalysis<T>(promptTemplate: string, replacements: Record<string, string>, sourceName: string): Promise<T | null> {
   if (!process.env.GEMINI_API_KEY) return null;
@@ -740,11 +920,10 @@ async function runGenericAnalysis<T>(promptTemplate: string, replacements: Recor
       if (!jsonMatch) return null;
       return JSON.parse(jsonMatch[0]) as T;
     } catch (error: any) {
-      // Check for 429 or other retryable errors
       if (error?.status === 429 || error?.message?.includes("429")) {
         attempt++;
         console.warn(`⚠️ Gemini rate limit (429) for ${sourceName}. Retrying attempt ${attempt}/${MAX_RETRIES} in ${attempt * 2}s...`);
-        await new Promise(resolve => setTimeout(resolve, attempt * 2000)); // Exponential-ish backoff
+        await new Promise(resolve => setTimeout(resolve, attempt * 2000));
         continue;
       }
 

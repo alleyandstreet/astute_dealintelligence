@@ -23,7 +23,9 @@ import {
     FolderOpen,
     Trash2,
     Star,
+    ArrowRight,
 } from "lucide-react";
+import Link from "next/link";
 
 interface SavedConfig {
     id: string;
@@ -452,6 +454,13 @@ function SourcesContent() {
                     </p>
                 </div>
                 <div className="flex gap-2">
+                    <Link
+                        href="/sources/producthunt-grounded"
+                        className="btn-primary !bg-[#DA552F] hover:!bg-[#bf4a29] flex items-center gap-2 px-4 shadow-lg shadow-[#DA552F]/20"
+                    >
+                        <Zap className="w-4 h-4" />
+                        PH Grounded Scraper
+                    </Link>
                     {subreddits.length > 0 && (
                         <button
                             onClick={() => setShowSaveModal(true)}

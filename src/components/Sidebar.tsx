@@ -119,7 +119,7 @@ const SidebarItem = ({ item, level = 0, onClose, pathname }: { item: NavItem, le
             <div className="mb-1">
                 <button
                     onClick={() => setIsExpanded(!isExpanded)}
-                    className={`w-full flex items-center justify-between py-3 pr-4 rounded-lg transition-all duration-150 text-[var(--text-muted)] hover:bg-[var(--card-hover)] hover:text-white`}
+                    className={`w-full flex items-center justify-between py-3 pr-4 rounded-lg transition-all duration-200 text-[var(--text-muted)] hover:bg-[var(--card-hover)]/70 hover:text-white`}
                     style={{ paddingLeft }}
                 >
                     <div className="flex items-center gap-3">
@@ -150,9 +150,9 @@ const SidebarItem = ({ item, level = 0, onClose, pathname }: { item: NavItem, le
         <Link
             href={item.href!}
             onClick={onClose}
-            className={`flex items-center gap-3 py-3 pr-4 rounded-lg transition-all duration-150 mb-1 ${isActive
-                ? "bg-gradient-to-r from-cyan-500/10 to-cyan-600/5 text-cyan-400 border border-cyan-500/20 shadow-[0_0_20px_rgba(6,182,212,0.15)]"
-                : "text-[var(--text-muted)] hover:bg-[var(--card-hover)] hover:text-white"
+            className={`flex items-center gap-3 py-3 pr-4 rounded-lg transition-all duration-200 mb-1 ${isActive
+                ? "bg-[color:rgba(45,212,191,0.12)] text-emerald-300 border border-[color:rgba(45,212,191,0.35)] shadow-[0_0_18px_rgba(45,212,191,0.15)]"
+                : "text-[var(--text-muted)] hover:bg-[var(--card-hover)]/70 hover:text-white"
                 }`}
             style={{ paddingLeft }}
         >
@@ -180,17 +180,17 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 />
             )}
 
-            <aside className={`fixed left-0 top-0 h-screen w-64 bg-[var(--card)] border-r border-[var(--border)] flex flex-col z-[70] transition-transform duration-300 lg:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+            <aside className={`fixed left-0 top-0 h-screen w-64 bg-[var(--background-elevated)] border-r border-[var(--border)] flex flex-col z-[70] transition-transform duration-300 lg:translate-x-0 backdrop-blur ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
                 {/* Logo & Close Button */}
                 <div className="relative p-6 border-b border-[var(--border)]">
-                    <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-purple-500/5" />
+                    <div className="absolute inset-0 bg-gradient-to-br from-emerald-400/10 to-sky-500/10" />
                     <div className="relative flex items-center justify-between">
                         <Link href="/" className="flex items-center gap-3 group" onClick={onClose}>
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-indigo-600 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-sky-500 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
                                 <AstuteLogo className="w-6 h-6 text-white" />
                             </div>
                             <div>
-                                <h1 className="font-bold text-lg text-white leading-tight group-hover:text-cyan-400 transition-colors">Astute</h1>
+                                <h1 className="font-bold text-lg text-white leading-tight group-hover:text-emerald-300 transition-colors">Astute</h1>
                                 <p className="text-[10px] uppercase tracking-wider text-[var(--text-dim)]">Intelligence</p>
                             </div>
                         </Link>
@@ -217,7 +217,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 </nav>
 
                 {/* Bottom section */}
-                <div className="p-4 border-t border-[var(--border)] bg-[#121214]">
+                <div className="p-4 border-t border-[var(--border)] bg-[var(--background-elevated)]">
                     <Link
                         href="/settings"
                         onClick={onClose}
@@ -236,10 +236,10 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                     </button>
 
                     {/* Stats card (hidden on very small screens to save space) */}
-                    <div className="mt-4 p-4 rounded-xl bg-gradient-to-br from-cyan-500/10 to-cyan-600/5 border border-cyan-500/20 hidden sm:block">
+                    <div className="mt-4 p-4 rounded-xl bg-gradient-to-br from-emerald-500/10 to-sky-500/5 border border-emerald-500/20 hidden sm:block">
                         <p className="text-[10px] uppercase tracking-widest text-[var(--text-dim)] mb-1 font-semibold">Live System</p>
                         <div className="flex items-center justify-between">
-                            <p className="text-xl font-bold text-cyan-400">Online</p>
+                            <p className="text-xl font-bold text-emerald-300">Online</p>
                             <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
                         </div>
                     </div>

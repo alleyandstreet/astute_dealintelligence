@@ -184,17 +184,17 @@ export default function Dashboard() {
   };
 
   const statCards = [
-    { label: "Total Deals", value: stats.totalDeals, icon: Briefcase, color: "cyan" },
-    { label: "New Leads", value: stats.newLeads, icon: Zap, color: "emerald" },
+    { label: "Total Deals", value: stats.totalDeals, icon: Briefcase, color: "emerald" },
+    { label: "New Leads", value: stats.newLeads, icon: Zap, color: "sky" },
     { label: "Qualified", value: stats.qualified, icon: Target, color: "amber" },
-    { label: "Avg. Viability", value: `${stats.avgViability}%`, icon: TrendingUp, color: "purple" },
+    { label: "Avg. Viability", value: `${stats.avgViability}%`, icon: TrendingUp, color: "teal" },
   ];
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 p-6">
       {/* Hero Header */}
       <div className="relative group">
-        <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/20 via-purple-500/20 to-blue-500/20 rounded-3xl blur-3xl opacity-50 group-hover:opacity-70 transition-opacity duration-1000 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/20 via-sky-500/15 to-amber-500/15 rounded-3xl blur-3xl opacity-50 group-hover:opacity-70 transition-opacity duration-1000 pointer-events-none" />
         <GlassCard className="relative flex flex-col md:flex-row md:items-center justify-between gap-6 p-8 border-white/10" intensity="medium">
           <div className="flex items-start gap-4">
             <div className="p-3 rounded-2xl bg-gradient-to-br from-cyan-500/20 to-blue-600/20 border border-cyan-500/20 shadow-inner shadow-cyan-500/10">

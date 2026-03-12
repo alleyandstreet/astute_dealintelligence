@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,19 +6,19 @@
 
 :root {
   /* Base colors */
-  --background: #0a0a0b;
-  --background-elevated: #0f0f11;
-  --card: #18181b;
-  --card-hover: #1f1f23;
-  --border: #27272a;
-  --border-light: #3f3f46;
+  --background: #0b0f11;
+  --background-elevated: #10161a;
+  --card: #141a1f;
+  --card-hover: #1a2229;
+  --border: #232c33;
+  --border-light: #2f3a43;
   
   /* Primary gradients */
-  --primary: #06b6d4;
-  --primary-hover: #0891b2;
-  --gradient-primary: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
-  --gradient-secondary: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);
-  --gradient-success: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  --primary: #2dd4bf;
+  --primary-hover: #14b8a6;
+  --gradient-primary: linear-gradient(135deg, #2dd4bf 0%, #38bdf8 100%);
+  --gradient-secondary: linear-gradient(135deg, #f59e0b 0%, #f97316 100%);
+  --gradient-success: linear-gradient(135deg, #10b981 0%, #16a34a 100%);
   --gradient-warning: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
   --gradient-danger: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
   
@@ -26,27 +26,31 @@
   --success: #10b981;
   --warning: #f59e0b;
   --danger: #ef4444;
-  --purple: #8b5cf6;
-  --pink: #ec4899;
+  --accent: #38bdf8;
   
   /* Text colors */
-  --text: #fafafa;
-  --text-muted: #a1a1aa;
-  --text-dim: #71717a;
+  --text: #e7edf2;
+  --text-muted: #9aa6b2;
+  --text-dim: #6b7682;
   
   /* Glow effects */
-  --glow-cyan: 0 0 30px rgba(6, 182, 212, 0.3);
-  --glow-purple: 0 0 30px rgba(139, 92, 246, 0.3);
-  --glow-pink: 0 0 30px rgba(236, 72, 153, 0.3);
-  --glow-green: 0 0 30px rgba(16, 185, 129, 0.3);
+  --glow-cyan: 0 0 30px rgba(45, 212, 191, 0.25);
+  --glow-purple: 0 0 30px rgba(56, 189, 248, 0.25);
+  --glow-pink: 0 0 30px rgba(245, 158, 11, 0.2);
+  --glow-green: 0 0 30px rgba(16, 185, 129, 0.25);
 }
 
 * {
   box-sizing: border-box;
 }
 
+:focus-visible {
+  outline: 2px solid rgba(56, 189, 248, 0.5);
+  outline-offset: 2px;
+}
+
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   background: var(--background);
   color: var(--text);
   min-height: 100vh;
@@ -54,6 +58,11 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
+}
+
+::selection {
+  background: rgba(45, 212, 191, 0.25);
+  color: var(--text);
 }
 
 /* Animated background */
@@ -64,9 +73,9 @@ body::before {
   left: -50%;
   width: 200%;
   height: 200%;
-  background: radial-gradient(circle at 20% 50%, rgba(6, 182, 212, 0.03) 0%, transparent 50%),
-              radial-gradient(circle at 80% 80%, rgba(139, 92, 246, 0.03) 0%, transparent 50%),
-              radial-gradient(circle at 40% 20%, rgba(236, 72, 153, 0.02) 0%, transparent 50%);
+  background: radial-gradient(circle at 15% 45%, rgba(45, 212, 191, 0.06) 0%, transparent 55%),
+              radial-gradient(circle at 85% 80%, rgba(56, 189, 248, 0.05) 0%, transparent 55%),
+              radial-gradient(circle at 40% 15%, rgba(245, 158, 11, 0.04) 0%, transparent 50%);
   animation: float 30s ease-in-out infinite;
   pointer-events: none;
   z-index: 0;
@@ -107,7 +116,7 @@ body::before {
 
 /* Typography utilities */
 .font-mono {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: 'IBM Plex Mono', monospace;
 }
 
 .gradient-text {
@@ -154,6 +163,15 @@ body::before {
   box-shadow: var(--glow-green);
 }
 
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* Enhanced card styles */
 .card-premium {
   background: var(--card);
@@ -171,7 +189,7 @@ body::before {
   left: -100%;
   width: 100%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(6, 182, 212, 0.1), transparent);
+  background: linear-gradient(90deg, transparent, rgba(45, 212, 191, 0.15), transparent);
   transition: left 0.5s ease;
 }
 
@@ -181,8 +199,8 @@ body::before {
 
 .card-premium:hover {
   transform: translateY(-4px);
-  border-color: rgba(6, 182, 212, 0.3);
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3), var(--glow-cyan);
+  border-color: rgba(45, 212, 191, 0.35);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35), var(--glow-cyan);
 }
 
 /* Deal card enhancements */
@@ -197,7 +215,7 @@ body::before {
   inset: 0;
   border-radius: inherit;
   padding: 1px;
-  background: linear-gradient(135deg, transparent, rgba(6, 182, 212, 0.2), transparent);
+  background: linear-gradient(135deg, transparent, rgba(45, 212, 191, 0.25), transparent);
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
@@ -212,8 +230,8 @@ body::before {
 .deal-card:hover {
   transform: translateY(-4px) scale(1.01);
   background: var(--card-hover);
-  border-color: rgba(6, 182, 212, 0.3);
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3), 0 0 20px rgba(6, 182, 212, 0.2);
+  border-color: rgba(45, 212, 191, 0.35);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35), 0 0 20px rgba(45, 212, 191, 0.25);
 }
 
 /* Score badges with gradients */
@@ -244,7 +262,7 @@ body::before {
   cursor: pointer;
   position: relative;
   overflow: hidden;
-  box-shadow: 0 4px 12px rgba(6, 182, 212, 0.2);
+  box-shadow: 0 10px 24px rgba(45, 212, 191, 0.2);
 }
 
 .btn-primary::before {
@@ -267,7 +285,7 @@ body::before {
 
 .btn-primary:hover {
   transform: translateY(-2px) scale(1.02);
-  box-shadow: 0 8px 24px rgba(6, 182, 212, 0.4), var(--glow-cyan);
+  box-shadow: 0 12px 30px rgba(45, 212, 191, 0.35), var(--glow-cyan);
 }
 
 .btn-primary:active {
@@ -275,7 +293,7 @@ body::before {
 }
 
 .btn-secondary {
-  background: var(--card);
+  background: var(--background-elevated);
   color: var(--text);
   padding: 0.5rem 1rem;
   border-radius: 0.75rem;
@@ -286,7 +304,7 @@ body::before {
 }
 
 .btn-secondary:hover {
-  background: var(--card-hover);
+  background: var(--card);
   border-color: var(--border-light);
   transform: translateY(-2px);
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);

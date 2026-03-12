@@ -20,27 +20,27 @@ const modules = [
     description: "AI-Powered Opportunity Scanner",
     icon: Search,
     href: "/dashboard",
-    color: "cyan",
+    color: "emerald",
     status: "active",
-    gradient: "from-cyan-500 to-blue-600"
+    gradient: "from-emerald-400 to-sky-500"
   },
   {
     title: "Market Intelligence",
     description: "Deep Market Trends & Analysis",
     icon: BarChart3,
     href: "/market-intelligence",
-    color: "purple",
+    color: "sky",
     status: "active",
-    gradient: "from-purple-500 to-pink-600"
+    gradient: "from-sky-400 to-cyan-500"
   },
   {
     title: "Content Engine",
     description: "From idea to caption to publishing, one stop",
     icon: Globe,
     href: "/marketing",
-    color: "pink",
+    color: "amber",
     status: "active",
-    gradient: "from-pink-500 to-rose-500"
+    gradient: "from-amber-400 to-orange-500"
   },
 
   {
@@ -48,9 +48,9 @@ const modules = [
     description: "System Configuration",
     icon: Settings,
     href: "/admin",
-    color: "amber",
+    color: "slate",
     status: "restricted",
-    gradient: "from-amber-500 to-orange-600"
+    gradient: "from-slate-500 to-slate-700"
   }
 ];
 
@@ -85,9 +85,9 @@ export default function HubPage() {
 
       {/* Background Ambient Effects */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-cyan-500/10 rounded-full blur-[120px] animate-pulse-slow" />
-        <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] bg-purple-500/10 rounded-full blur-[120px] animate-pulse-slow delay-1000" />
-        <div className="absolute top-[40%] left-[50%] -translate-x-1/2 w-[40%] h-[40%] bg-indigo-500/5 rounded-full blur-[100px]" />
+        <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-emerald-400/10 rounded-full blur-[120px] animate-pulse-slow" />
+        <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] bg-sky-400/10 rounded-full blur-[120px] animate-pulse-slow delay-1000" />
+        <div className="absolute top-[40%] left-[50%] -translate-x-1/2 w-[40%] h-[40%] bg-amber-400/5 rounded-full blur-[100px]" />
       </div>
 
       <motion.div
@@ -98,15 +98,15 @@ export default function HubPage() {
       >
         <div className="flex flex-col items-center justify-center gap-4">
           <div className="relative group">
-            <div className="absolute inset-0 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-2xl blur opacity-40 group-hover:opacity-60 transition-opacity duration-500" />
+            <div className="absolute inset-0 bg-gradient-to-r from-emerald-400 to-sky-500 rounded-2xl blur opacity-40 group-hover:opacity-60 transition-opacity duration-500" />
             <div className="relative w-16 h-16 rounded-2xl bg-black border border-white/10 flex items-center justify-center backdrop-blur-xl shadow-2xl">
-              <Zap className="w-8 h-8 text-cyan-400 drop-shadow-[0_0_10px_rgba(34,211,238,0.5)]" />
+              <Zap className="w-8 h-8 text-emerald-300 drop-shadow-[0_0_10px_rgba(52,211,153,0.5)]" />
             </div>
           </div>
 
           <div className="space-y-2">
             <h1 className="text-4xl md:text-6xl font-black tracking-tighter text-white">
-              Astute <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 animate-gradient-x">Intelligence</span>
+              Astute <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 via-sky-400 to-amber-300 animate-gradient-x">Intelligence</span>
             </h1>
             <p className="text-zinc-500 text-sm font-mono tracking-widest uppercase">
               System Operational • v4.0.0

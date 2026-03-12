@@ -68,7 +68,7 @@ const SidebarItem = ({ item, level = 0, onClose, pathname }: { item: NavItem, le
             <div className="mb-1">
                 <button
                     onClick={() => setIsExpanded(!isExpanded)}
-                    className={`w-full flex items-center justify-between py-3 pr-4 rounded-lg transition-all duration-150 text-zinc-400 hover:bg-white/5 hover:text-white`}
+                    className={`w-full flex items-center justify-between py-3 pr-4 rounded-lg transition-all duration-200 text-[var(--text-muted)] hover:bg-[var(--card-hover)]/70 hover:text-white`}
                     style={{ paddingLeft }}
                 >
                     <div className="flex items-center gap-3">
@@ -99,9 +99,9 @@ const SidebarItem = ({ item, level = 0, onClose, pathname }: { item: NavItem, le
         <Link
             href={item.href!}
             onClick={onClose}
-            className={`flex items-center gap-3 py-3 pr-4 rounded-lg transition-all duration-150 mb-1 ${isActive
-                ? "bg-gradient-to-r from-pink-600/20 to-pink-500/10 text-pink-400 border border-pink-500/20 shadow-[0_0_15px_rgba(236,72,153,0.15)]"
-                : "text-zinc-400 hover:bg-white/5 hover:text-white"
+            className={`flex items-center gap-3 py-3 pr-4 rounded-lg transition-all duration-200 mb-1 ${isActive
+                ? "bg-[color:rgba(245,158,11,0.12)] text-amber-300 border border-[color:rgba(245,158,11,0.3)] shadow-[0_0_16px_rgba(245,158,11,0.2)]"
+                : "text-[var(--text-muted)] hover:bg-[var(--card-hover)]/70 hover:text-white"
                 }`}
             style={{ paddingLeft }}
         >
@@ -125,23 +125,23 @@ export default function ContentSidebar({ isOpen, onClose }: SidebarProps) {
                 />
             )}
 
-            <aside className={`fixed left-0 top-0 h-screen w-64 bg-[#050505] border-r border-white/10 flex flex-col z-[70] transition-transform duration-300 lg:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+            <aside className={`fixed left-0 top-0 h-screen w-64 bg-[var(--background-elevated)] border-r border-[var(--border)] flex flex-col z-[70] transition-transform duration-300 lg:translate-x-0 backdrop-blur ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
                 {/* Logo & Close Button */}
-                <div className="relative p-6 border-b border-white/10">
-                    <div className="absolute inset-0 bg-gradient-to-br from-pink-900/10 to-purple-900/10" />
+                <div className="relative p-6 border-b border-[var(--border)]">
+                    <div className="absolute inset-0 bg-gradient-to-br from-amber-400/10 to-orange-500/10" />
                     <div className="relative flex items-center justify-between">
                         <Link href="/" className="flex items-center gap-3 group" onClick={onClose}>
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-600 to-purple-600 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
                                 <Megaphone className="w-6 h-6 text-white" />
                             </div>
                             <div>
-                                <h1 className="font-bold text-lg text-white leading-tight group-hover:text-pink-400 transition-colors">Astute</h1>
-                                <p className="text-[10px] uppercase tracking-wider text-zinc-500">Content Engine</p>
+                                <h1 className="font-bold text-lg text-white leading-tight group-hover:text-amber-300 transition-colors">Astute</h1>
+                                <p className="text-[10px] uppercase tracking-wider text-[var(--text-dim)]">Content Engine</p>
                             </div>
                         </Link>
                         <button
                             onClick={onClose}
-                            className="lg:hidden p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-lg transition-all"
+                            className="lg:hidden p-2 text-[var(--text-muted)] hover:text-white hover:bg-[var(--card-hover)]/70 rounded-lg transition-all"
                         >
                             <X className="w-5 h-5" />
                         </button>
@@ -150,7 +150,7 @@ export default function ContentSidebar({ isOpen, onClose }: SidebarProps) {
 
                 {/* Navigation */}
                 <nav className="flex-1 py-6 px-3 overflow-y-auto">
-                    <p className="px-4 text-xs font-semibold text-zinc-600 uppercase tracking-widest mb-4">Planning</p>
+                    <p className="px-4 text-xs font-semibold text-[var(--text-dim)] uppercase tracking-widest mb-4">Planning</p>
                     {planningItems.map((item, index) => (
                         <SidebarItem
                             key={index}
@@ -161,7 +161,7 @@ export default function ContentSidebar({ isOpen, onClose }: SidebarProps) {
                     ))}
 
                     <div className="mt-8 mb-4">
-                        <p className="px-4 text-xs font-semibold text-zinc-600 uppercase tracking-widest mb-4">Execution</p>
+                        <p className="px-4 text-xs font-semibold text-[var(--text-dim)] uppercase tracking-widest mb-4">Execution</p>
                         {platformItems.map((item, index) => (
                             <SidebarItem
                                 key={index}
@@ -173,7 +173,7 @@ export default function ContentSidebar({ isOpen, onClose }: SidebarProps) {
                     </div>
 
                     <div className="mt-8 mb-4">
-                        <p className="px-4 text-xs font-semibold text-zinc-600 uppercase tracking-widest mb-4">Management</p>
+                        <p className="px-4 text-xs font-semibold text-[var(--text-dim)] uppercase tracking-widest mb-4">Management</p>
                         {utilityItems.map((item, index) => (
                             <SidebarItem
                                 key={index}
@@ -184,11 +184,11 @@ export default function ContentSidebar({ isOpen, onClose }: SidebarProps) {
                         ))}
                     </div>
 
-                    <div className="my-6 border-t border-white/5 mx-4" />
+                    <div className="my-6 border-t border-[var(--border)] mx-4" />
 
                     <Link
                         href="/"
-                        className="flex items-center gap-3 py-3 px-4 rounded-lg text-zinc-500 hover:text-white hover:bg-white/5 transition-all"
+                        className="flex items-center gap-3 py-3 px-4 rounded-lg text-[var(--text-muted)] hover:text-white hover:bg-[var(--card-hover)]/70 transition-all"
                     >
                         <LayoutDashboard className="w-5 h-5" />
                         <span className="font-medium">Go to Hub</span>
@@ -196,7 +196,7 @@ export default function ContentSidebar({ isOpen, onClose }: SidebarProps) {
                 </nav>
 
                 {/* Bottom section */}
-                <div className="p-4 border-t border-white/10 bg-[#0a0a0a]">
+                <div className="p-4 border-t border-[var(--border)] bg-[var(--background-elevated)]">
                     <button
                         onClick={() => signOut({ callbackUrl: "/login" })}
                         className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-red-400/70 hover:bg-red-500/10 hover:text-red-400 transition-all text-left"

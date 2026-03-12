@@ -62,7 +62,7 @@ const SidebarItem = ({ item, level = 0, onClose, pathname }: { item: NavItem, le
             <div className="mb-1">
                 <button
                     onClick={() => setIsExpanded(!isExpanded)}
-                    className={`w-full flex items-center justify-between py-3 pr-4 rounded-lg transition-all duration-150 text-[var(--text-muted)] hover:bg-[var(--card-hover)] hover:text-white`}
+                    className={`w-full flex items-center justify-between py-3 pr-4 rounded-lg transition-all duration-200 text-[var(--text-muted)] hover:bg-[var(--card-hover)]/70 hover:text-white`}
                     style={{ paddingLeft }}
                 >
                     <div className="flex items-center gap-3">
@@ -93,9 +93,9 @@ const SidebarItem = ({ item, level = 0, onClose, pathname }: { item: NavItem, le
         <Link
             href={item.href!}
             onClick={onClose}
-            className={`flex items-center gap-3 py-3 pr-4 rounded-lg transition-all duration-150 mb-1 ${isActive
-                ? "bg-gradient-to-r from-purple-500/10 to-pink-600/5 text-purple-400 border border-purple-500/20 shadow-[0_0_20px_rgba(168,85,247,0.15)]"
-                : "text-[var(--text-muted)] hover:bg-[var(--card-hover)] hover:text-white"
+            className={`flex items-center gap-3 py-3 pr-4 rounded-lg transition-all duration-200 mb-1 ${isActive
+                ? "bg-[color:rgba(56,189,248,0.12)] text-sky-300 border border-[color:rgba(56,189,248,0.35)] shadow-[0_0_18px_rgba(56,189,248,0.18)]"
+                : "text-[var(--text-muted)] hover:bg-[var(--card-hover)]/70 hover:text-white"
                 }`}
             style={{ paddingLeft }}
         >
@@ -118,17 +118,17 @@ export default function MarketIntelligenceSidebar({ isOpen, onClose }: SidebarPr
                 />
             )}
 
-            <aside className={`fixed left-0 top-0 h-screen w-64 bg-[var(--card)] border-r border-[var(--border)] flex flex-col z-[70] transition-transform duration-300 lg:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+            <aside className={`fixed left-0 top-0 h-screen w-64 bg-[var(--background-elevated)] border-r border-[var(--border)] flex flex-col z-[70] transition-transform duration-300 lg:translate-x-0 backdrop-blur ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
                 {/* Logo & Close Button */}
                 <div className="relative p-6 border-b border-[var(--border)]">
-                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-pink-500/5" />
+                    <div className="absolute inset-0 bg-gradient-to-br from-sky-500/10 to-emerald-400/10" />
                     <div className="relative flex items-center justify-between">
                         <Link href="/" className="flex items-center gap-3 group" onClick={onClose}>
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-sky-500 to-emerald-400 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
                                 <AstuteLogo className="w-6 h-6 text-white" />
                             </div>
                             <div>
-                                <h1 className="font-bold text-lg text-white leading-tight group-hover:text-purple-400 transition-colors">Astute</h1>
+                                <h1 className="font-bold text-lg text-white leading-tight group-hover:text-sky-300 transition-colors">Astute</h1>
                                 <p className="text-[10px] uppercase tracking-wider text-[var(--text-dim)]">Market Intel</p>
                             </div>
                         </Link>
@@ -154,7 +154,7 @@ export default function MarketIntelligenceSidebar({ isOpen, onClose }: SidebarPr
                 </nav>
 
                 {/* Bottom section */}
-                <div className="p-4 border-t border-[var(--border)] bg-[#121214]">
+                <div className="p-4 border-t border-[var(--border)] bg-[var(--background-elevated)]">
                     <Link
                         href="/settings"
                         onClick={onClose}
