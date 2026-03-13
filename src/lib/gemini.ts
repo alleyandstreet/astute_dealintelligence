@@ -948,3 +948,57 @@ async function runGenericAnalysis<T>(promptTemplate: string, replacements: Recor
   console.error(`❌ Failed to analyze ${sourceName} after ${MAX_RETRIES} attempts due to rate limits.`);
   return null;
 }
+
+/**
+ * Cross-verifies the upvote counts for a list of products using Google Search grounding.
+ */
+export async function verifyProductHuntUpvotes(
+    date: string,
+    products: { name: string; productHuntUrl: string }[]
+): Promise<Map<string, number>> {
+    const verifiedMap = new Map<string, number>();
+    if (!process.env.GEMINI_API_KEY || products.length === 0) return verifiedMap;
+
+    const productsList = products.map((p) => `- ${p.name} (${p.productHuntUrl})`).join("\n");
+
+    const prompt = `You are a fact-checking agent specializing in Product Hunt data.
+Your goal is to verify the FINAL total upvote count for these products on the specific date: ${date}.
+
+Products to verify:
+${productsList}
+
+INSTRUCTIONS:
+1. Use Google Search grounding to find the final, end-of-day upvote counts for these items on ${date}.
+2. Check the Product Hunt leaderboard archives or daily recaps to be 100% sure of the final count.
+3. Return ONLY a plain JSON object where:
+   - Keys are EXACTLY the Product Hunt URLs or Names provided above (case-insensitive keys are fine).
+   - Values are the final confirmed integer upvote counts.
+4. If a count cannot be verified for a specific item, do not include it in the JSON.
+5. NO chatter, NO markdown code blocks, JUST the JSON object.
+
+Example Output:
+{
+  "https://www.producthunt.com/posts/example": 452,
+  "Example Product": 452
+}`;
+
+    try {
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        const text = response.text();
+        
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+            for (const [key, value] of Object.entries(parsed)) {
+                if (typeof value === "number") {
+                    verifiedMap.set(key.toLowerCase(), value);
+                }
+            }
+        }
+    } catch (error) {
+        console.error("Error verifying upvotes via Gemini:", error);
+    }
+
+    return verifiedMap;
+}
