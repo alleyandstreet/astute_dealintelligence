@@ -798,10 +798,19 @@ CRITICAL DATE GUARANTEE:
 - Do NOT reuse today's leaderboard for past or future dates.
 `;
 
+const PH_GROUNDED_RELAXED_APPENDIX = `
+DATE RELIABILITY (RELAXED MODE):
+- You must still target {date} and confirm it matches the leaderboard date when possible.
+- If the official leaderboard page is blocked, use secondary credible sources (archived pages, press recaps, or cached leaderboards) that clearly reference the target date.
+- Do NOT reuse today's leaderboard for past or future dates.
+- If you cannot find any sources for {date}, return an empty products list with verification_status = "date_not_found".
+`;
+
 export async function scrapeProductHuntWithGrounding(
   date: string,
   minUpvotes: number,
-  maxUpvotes: number
+  maxUpvotes: number,
+  options?: { relaxed?: boolean }
 ): Promise<{ date: string; total_found: number; products: ProductHuntGroundedListing[] } | null> {
   if (!process.env.GEMINI_API_KEY) return null;
 
@@ -811,8 +820,9 @@ export async function scrapeProductHuntWithGrounding(
   const day = String(d.getDate()).padStart(2, "0");
   const dateStr = `${year}/${month}/${day}`;
 
+  const allowRelaxed = Boolean(options?.relaxed);
   const buildPrompt = (strict: boolean) =>
-    (PH_GROUNDED_PROMPT + (strict ? PH_GROUNDED_STRICT_APPENDIX : ""))
+    (PH_GROUNDED_PROMPT + (strict ? PH_GROUNDED_STRICT_APPENDIX : allowRelaxed ? PH_GROUNDED_RELAXED_APPENDIX : ""))
       .replace(/{date}/g, date)
       .replace(/{date_url}/g, dateStr)
       .replace(/{min_upvotes}/g, minUpvotes.toString())
