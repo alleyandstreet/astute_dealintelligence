@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     Calendar,
@@ -23,6 +24,7 @@ import {
 import Link from "next/link";
 import { toast } from "sonner";
 import { GlassCard } from "@/components/ui/GlassCard";
+import DateTimePicker from "@/components/DateTimePicker";
 
 interface ProductHuntListing {
     name: string;
@@ -41,7 +43,7 @@ interface ProductHuntListing {
 }
 
 export default function ProductHuntGroundedPage() {
-    const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+    const [date, setDate] = useState<Date | null>(new Date());
     const [minUpvotes, setMinUpvotes] = useState(20);
     const [maxUpvotes, setMaxUpvotes] = useState(0);
     const [isScanning, setIsScanning] = useState(false);
@@ -50,15 +52,20 @@ export default function ProductHuntGroundedPage() {
     const [sortConfig, setSortConfig] = useState<{ key: keyof ProductHuntListing, direction: 'asc' | 'desc' }>({ key: 'upvotes', direction: 'desc' });
 
     const handleScan = async () => {
+        if (!date) {
+            toast.error("Select a target date first.");
+            return;
+        }
         setIsScanning(true);
         setResults([]);
         setStatusMessage("Initializing grounded search...");
 
         try {
+            const dateValue = format(date, "yyyy-MM-dd");
             const response = await fetch("/api/scan/producthunt-grounded", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ date, minUpvotes, maxUpvotes }),
+                body: JSON.stringify({ date: dateValue, minUpvotes, maxUpvotes }),
             });
 
             if (!response.body) throw new Error("No response body");
@@ -147,7 +154,8 @@ export default function ProductHuntGroundedPage() {
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.setAttribute("href", url);
-        link.setAttribute("download", `producthunt_scrape_${date}.csv`);
+        const dateValue = date ? format(date, "yyyy-MM-dd") : "unknown_date";
+        link.setAttribute("download", `producthunt_scrape_${dateValue}.csv`);
         link.style.visibility = 'hidden';
         document.body.appendChild(link);
         link.click();
@@ -209,12 +217,13 @@ export default function ProductHuntGroundedPage() {
                             <Calendar className="w-3 h-3 text-[#DA552F]" />
                             Target Date
                         </label>
-                        <input
-                            type="date"
+                        <DateTimePicker
                             value={date}
-                            onChange={(e) => setDate(e.target.value)}
-                            max={new Date().toISOString().split('T')[0]}
-                            className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:border-[#DA552F]/50 outline-none transition-all"
+                            onChange={setDate}
+                            placeholder="Select date"
+                            showTime={false}
+                            accent="amber"
+                            maxDate={new Date()}
                         />
                     </div>
 
@@ -255,7 +264,11 @@ export default function ProductHuntGroundedPage() {
                                 <AlertCircle className="w-4 h-4 text-zinc-600" />
                             )}
                             <span className="text-sm font-medium text-zinc-400">
-                                {isScanning ? statusMessage : results.length > 0 ? `Found ${results.length} products for ${date}` : "Ready to scan leaderboard"}
+                                {isScanning
+                                    ? statusMessage
+                                    : results.length > 0
+                                        ? `Found ${results.length} products for ${date ? format(date, "MMM dd, yyyy") : "selected date"}`
+                                        : "Ready to scan leaderboard"}
                             </span>
                         </div>
                     </div>

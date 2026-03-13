@@ -6,6 +6,7 @@ import {
     addMonths,
     subMonths,
     startOfMonth,
+    startOfDay,
     endOfMonth,
     startOfWeek,
     endOfWeek,
@@ -22,9 +23,21 @@ interface DateTimePickerProps {
     value: Date | null;
     onChange: (date: Date) => void;
     placeholder?: string;
+    showTime?: boolean;
+    accent?: "pink" | "emerald" | "amber" | "sky";
+    minDate?: Date;
+    maxDate?: Date;
 }
 
-export default function DateTimePicker({ value, onChange, placeholder = "Select date & time" }: DateTimePickerProps) {
+export default function DateTimePicker({
+    value,
+    onChange,
+    placeholder = "Select date & time",
+    showTime = true,
+    accent = "pink",
+    minDate,
+    maxDate,
+}: DateTimePickerProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState<Date | null>(value);
@@ -62,9 +75,14 @@ export default function DateTimePicker({ value, onChange, placeholder = "Select 
     const prevMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
 
     const handleDateClick = (day: Date) => {
+        if (minDate && day < startOfDay(minDate)) return;
+        if (maxDate && day > startOfDay(maxDate)) return;
+
         // If we already have a time selected (or default), use it
         const [hours, minutes] = selectedTime.split(":").map(Number);
-        const newDate = setMinutes(setHours(day, hours), minutes);
+        const newDate = showTime
+            ? setMinutes(setHours(day, hours), minutes)
+            : setMinutes(setHours(day, 0), 0);
 
         // Optimistic update
         setSelectedDate(newDate);
@@ -101,34 +119,75 @@ export default function DateTimePicker({ value, onChange, placeholder = "Select 
 
     const weekDays = ["S", "M", "T", "W", "T", "F", "S"];
 
+    const accentMap = {
+        pink: {
+            ring: "border-pink-500 ring-1 ring-pink-500/50",
+            icon: "text-pink-400",
+            selected: "bg-gradient-to-br from-pink-600 to-purple-600 text-white shadow-lg shadow-pink-900/20 hover:from-pink-500 hover:to-purple-500",
+            today: "text-pink-400",
+            dot: "bg-pink-500",
+            timeBg: "bg-pink-500/10 text-pink-500",
+            timeFocus: "focus:border-pink-500/50",
+        },
+        emerald: {
+            ring: "border-emerald-400 ring-1 ring-emerald-400/50",
+            icon: "text-emerald-300",
+            selected: "bg-gradient-to-br from-emerald-500 to-sky-500 text-white shadow-lg shadow-emerald-900/20 hover:from-emerald-400 hover:to-sky-400",
+            today: "text-emerald-300",
+            dot: "bg-emerald-400",
+            timeBg: "bg-emerald-400/10 text-emerald-300",
+            timeFocus: "focus:border-emerald-400/50",
+        },
+        amber: {
+            ring: "border-amber-400 ring-1 ring-amber-400/50",
+            icon: "text-amber-300",
+            selected: "bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-lg shadow-amber-900/20 hover:from-amber-300 hover:to-orange-400",
+            today: "text-amber-300",
+            dot: "bg-amber-400",
+            timeBg: "bg-amber-400/10 text-amber-300",
+            timeFocus: "focus:border-amber-400/50",
+        },
+        sky: {
+            ring: "border-sky-400 ring-1 ring-sky-400/50",
+            icon: "text-sky-300",
+            selected: "bg-gradient-to-br from-sky-500 to-cyan-500 text-white shadow-lg shadow-sky-900/20 hover:from-sky-400 hover:to-cyan-400",
+            today: "text-sky-300",
+            dot: "bg-sky-400",
+            timeBg: "bg-sky-400/10 text-sky-300",
+            timeFocus: "focus:border-sky-400/50",
+        },
+    } as const;
+
+    const accentStyles = accentMap[accent];
+
     return (
         <div className="relative w-full" ref={containerRef}>
             <div
                 onClick={toggleOpen}
                 className={`
                     w-full flex items-center justify-between px-4 py-3 rounded-xl border cursor-pointer transition-all
-                    ${isOpen ? 'border-pink-500 ring-1 ring-pink-500/50 bg-[#151515]' : 'border-white/10 bg-black/50 hover:bg-white/5'}
+                    ${isOpen ? `${accentStyles.ring} bg-[var(--background-elevated)]` : 'border-[var(--border)] bg-[var(--background-elevated)]/70 hover:bg-[var(--card-hover)]/70'}
                 `}
             >
                 <div className="flex items-center gap-3 text-zinc-300">
-                    <CalendarIcon className={`w-4 h-4 ${value ? 'text-pink-400' : 'text-zinc-500'}`} />
-                    <span className={value ? "text-white font-medium" : "text-zinc-500"}>
-                        {value ? format(value, "PPP 'at' p") : placeholder}
+                    <CalendarIcon className={`w-4 h-4 ${value ? accentStyles.icon : 'text-[var(--text-dim)]'}`} />
+                    <span className={value ? "text-white font-medium" : "text-[var(--text-dim)]"}>
+                        {value ? format(value, showTime ? "PPP 'at' p" : "dd/MM/yyyy") : placeholder}
                     </span>
                 </div>
             </div>
 
             {isOpen && (
-                <div className="absolute top-full mt-2 left-0 z-50 w-full md:w-[320px] bg-[#111] border border-white/10 rounded-xl shadow-2xl shadow-black overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                <div className="absolute top-full mt-2 left-0 z-50 w-full md:w-[320px] bg-[var(--background-elevated)] border border-[var(--border)] rounded-xl shadow-2xl shadow-black overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                     {/* Header */}
-                    <div className="flex items-center justify-between p-4 border-b border-white/5 bg-[#151515]">
-                        <button onClick={prevMonth} className="p-1 hover:bg-white/10 rounded-md text-zinc-400 hover:text-white transition-colors">
+                    <div className="flex items-center justify-between p-4 border-b border-[var(--border)] bg-[var(--card)]">
+                        <button onClick={prevMonth} className="p-1 hover:bg-white/10 rounded-md text-[var(--text-muted)] hover:text-white transition-colors">
                             <ChevronLeft className="w-5 h-5" />
                         </button>
                         <span className="text-sm font-semibold text-white">
                             {format(currentMonth, "MMMM yyyy")}
                         </span>
-                        <button onClick={nextMonth} className="p-1 hover:bg-white/10 rounded-md text-zinc-400 hover:text-white transition-colors">
+                        <button onClick={nextMonth} className="p-1 hover:bg-white/10 rounded-md text-[var(--text-muted)] hover:text-white transition-colors">
                             <ChevronRight className="w-5 h-5" />
                         </button>
                     </div>
@@ -147,6 +206,7 @@ export default function DateTimePicker({ value, onChange, placeholder = "Select 
                                 const isSelected = selectedDate ? isSameDay(day, selectedDate) : false;
                                 const isCurrentMonth = isSameMonth(day, currentMonth);
                                 const isTodayDate = isToday(day);
+                                const isDisabled = (minDate && day < startOfDay(minDate)) || (maxDate && day > startOfDay(maxDate));
 
                                 return (
                                     <button
@@ -154,14 +214,15 @@ export default function DateTimePicker({ value, onChange, placeholder = "Select 
                                         onClick={() => handleDateClick(day)}
                                         className={`
                                             h-9 rounded-lg text-sm flex items-center justify-center transition-all relative
-                                            ${!isCurrentMonth ? 'text-zinc-700' : 'text-zinc-300 hover:bg-white/5 hover:text-white'}
-                                            ${isSelected ? 'bg-gradient-to-br from-pink-600 to-purple-600 text-white font-bold shadow-lg shadow-pink-900/20 hover:from-pink-500 hover:to-purple-500' : ''}
-                                            ${isTodayDate && !isSelected ? 'text-pink-400 font-semibold' : ''}
+                                            ${!isCurrentMonth ? 'text-zinc-700' : 'text-[var(--text-muted)] hover:bg-white/5 hover:text-white'}
+                                            ${isSelected ? accentStyles.selected : ''}
+                                            ${isTodayDate && !isSelected ? `${accentStyles.today} font-semibold` : ''}
+                                            ${isDisabled ? 'opacity-30 pointer-events-none' : ''}
                                         `}
                                     >
                                         {format(day, "d")}
                                         {isTodayDate && !isSelected && (
-                                            <div className="absolute bottom-1.5 w-1 h-1 rounded-full bg-pink-500" />
+                                            <div className={`absolute bottom-1.5 w-1 h-1 rounded-full ${accentStyles.dot}`} />
                                         )}
                                     </button>
                                 );
@@ -170,22 +231,24 @@ export default function DateTimePicker({ value, onChange, placeholder = "Select 
                     </div>
 
                     {/* Time Selector */}
-                    <div className="p-4 border-t border-white/5 bg-[#151515]">
-                        <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-lg bg-pink-500/10 flex items-center justify-center text-pink-500">
-                                <Clock className="w-4 h-4" />
-                            </div>
-                            <div className="flex-1">
-                                <label className="text-[10px] uppercase font-bold text-zinc-500 mb-1 block">Time</label>
-                                <input
-                                    type="time"
-                                    value={selectedTime}
-                                    onChange={handleTimeChange}
-                                    className="w-full bg-black/50 border border-white/10 rounded-lg px-2 py-1.5 text-sm text-white focus:outline-none focus:border-pink-500/50"
-                                />
+                    {showTime && (
+                        <div className="p-4 border-t border-[var(--border)] bg-[var(--card)]">
+                            <div className="flex items-center gap-3">
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${accentStyles.timeBg}`}>
+                                    <Clock className="w-4 h-4" />
+                                </div>
+                                <div className="flex-1">
+                                    <label className="text-[10px] uppercase font-bold text-[var(--text-dim)] mb-1 block">Time</label>
+                                    <input
+                                        type="time"
+                                        value={selectedTime}
+                                        onChange={handleTimeChange}
+                                        className={`w-full bg-black/40 border border-[var(--border)] rounded-lg px-2 py-1.5 text-sm text-white focus:outline-none ${accentStyles.timeFocus}`}
+                                    />
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    )}
                 </div>
             )}
         </div>
