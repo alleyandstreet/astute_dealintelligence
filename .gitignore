@@ -50,3 +50,17 @@ turbo_output.txt
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# logs
+*.log
+/prisma_gen.log
+/prisma_gen_2.log
+/server.log
+/server_debug.log
+/next_dev.log
+
+# temporary artifacts
+/tailwindcss-3.4.19.tgz
+/test-exports.js
+/list-users.ts
+/find-backticks.js

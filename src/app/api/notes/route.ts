@@ -4,6 +4,18 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { logActivity } from "@/lib/activity-logger";
 
+type SessionUser = {
+    id?: string;
+    name?: string | null;
+};
+
+function withResolvedAuthor<T extends { authorName: string | null; user: { username: string } | null }>(note: T) {
+    return {
+        ...note,
+        authorName: note.authorName ?? note.user?.username ?? "Unknown",
+    };
+}
+
 // GET notes for a deal
 export async function GET(request: NextRequest) {
     try {
@@ -17,9 +29,17 @@ export async function GET(request: NextRequest) {
         const notes = await db.note.findMany({
             where: { dealId },
             orderBy: { createdAt: "desc" },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        username: true,
+                    },
+                },
+            },
         });
 
-        return NextResponse.json(notes);
+        return NextResponse.json(notes.map(withResolvedAuthor));
     } catch (error) {
         console.error("Error fetching notes:", error);
         return NextResponse.json({ error: "Failed to fetch notes" }, { status: 500 });
@@ -29,31 +49,53 @@ export async function GET(request: NextRequest) {
 // POST - Create new note
 export async function POST(request: NextRequest) {
     try {
+        const session = await getServerSession(authOptions);
+        const sessionUser = session?.user as SessionUser | undefined;
+        if (!sessionUser?.id) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
         const body = await request.json();
-        const { dealId, content } = body;
+        const dealId = String(body.dealId ?? "");
+        const content = String(body.content ?? "").trim();
 
         if (!dealId || !content) {
             return NextResponse.json({ error: "Deal ID and content required" }, { status: 400 });
         }
 
+        const user = await db.user.findUnique({
+            where: { id: sessionUser.id },
+            select: { username: true },
+        });
+
+        const userId = user ? sessionUser.id : null;
+        const authorName = user?.username ?? sessionUser.name ?? "Unknown";
+
         const note = await db.note.create({
             data: {
                 dealId,
                 content,
+                userId,
+                authorName,
+            },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        username: true,
+                    },
+                },
             },
         });
 
-        const session = await getServerSession(authOptions);
-        if (session?.user) {
-            await logActivity({
-                userId: (session.user as any).id,
-                action: "note_added",
-                details: `Added note to deal ID: ${dealId}`,
-                ipAddress: request.headers.get("x-forwarded-for") || undefined,
-            });
-        }
+        await logActivity({
+            userId: sessionUser.id,
+            action: "note_added",
+            details: `Added note to deal ID: ${dealId}`,
+            ipAddress: request.headers.get("x-forwarded-for") || undefined,
+        });
 
-        return NextResponse.json(note, { status: 201 });
+        return NextResponse.json(withResolvedAuthor(note), { status: 201 });
     } catch (error) {
         console.error("Error creating note:", error);
         return NextResponse.json({ error: "Failed to create note" }, { status: 500 });
@@ -63,6 +105,12 @@ export async function POST(request: NextRequest) {
 // DELETE - Remove note
 export async function DELETE(request: NextRequest) {
     try {
+        const session = await getServerSession(authOptions);
+        const sessionUser = session?.user as SessionUser | undefined;
+        if (!sessionUser?.id) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
         const searchParams = request.nextUrl.searchParams;
         const id = searchParams.get("id");
 
@@ -74,15 +122,12 @@ export async function DELETE(request: NextRequest) {
             where: { id },
         });
 
-        const session = await getServerSession(authOptions);
-        if (session?.user) {
-            await logActivity({
-                userId: (session.user as any).id,
-                action: "note_deleted",
-                details: `Deleted note ID: ${id}`,
-                ipAddress: request.headers.get("x-forwarded-for") || undefined,
-            });
-        }
+        await logActivity({
+            userId: sessionUser.id,
+            action: "note_deleted",
+            details: `Deleted note ID: ${id}`,
+            ipAddress: request.headers.get("x-forwarded-for") || undefined,
+        });
 
         return NextResponse.json({ success: true });
     } catch (error) {

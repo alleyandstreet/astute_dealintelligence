@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { hashPassword } from "@/lib/password";
 import { logActivity } from "@/lib/activity-logger";
+import { autoAssignDefaultOnboardingTemplate } from "@/lib/team-controls";
 
 export async function GET(req: NextRequest) {
     const session = await getServerSession(authOptions);
@@ -88,6 +89,11 @@ export async function POST(req: NextRequest) {
                 isActive: true,
                 createdAt: true,
             },
+        });
+
+        await autoAssignDefaultOnboardingTemplate({
+            userId: user.id,
+            assignedById: (session.user as any).id || null,
         });
 
         // Log activity

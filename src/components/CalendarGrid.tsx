@@ -39,13 +39,7 @@ import {
 } from "date-fns";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import {
-    Instagram,
-    Linkedin,
-    Twitter,
-    AtSign,
-    Facebook
-} from "lucide-react";
+import { Instagram, Twitter, AtSign, Facebook, Linkedin } from "lucide-react";
 import ClientCopyButton from "./ClientCopyButton";
 import DateTimePicker from "@/components/DateTimePicker";
 import { QuickPostActionCenter } from "./QuickPostActionCenter";

@@ -1,12 +1,17 @@
 
 import { NextResponse } from "next/server";
 import { db as prisma } from "@/lib/db";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireAuth } from "@/lib/auth";
+import { toUniqueStringArray } from "@/lib/json-arrays";
 
 export async function GET(req: Request) {
+    const { session, response } = await requireAuth({
+        feature: "team_crm",
+        rateLimitKey: "team_crm_requests",
+    });
+    if (response) return response;
+
     try {
-        const session = await getServerSession(authOptions);
         const userEmail = session?.user?.email;
 
         // Fetch messages that are NOT deleted for this user
@@ -26,9 +31,14 @@ export async function GET(req: Request) {
 
         // Filter in memory for MVP (deletedFor is string[])
         // If admin view, return ALL messages. If not, filter out deleted ones.
+        const normalizedMessages = messages.map((message) => ({
+            ...message,
+            deletedFor: toUniqueStringArray(message.deletedFor),
+        }));
+
         const visibleMessages = isAdminView
-            ? messages
-            : messages.filter(msg => !userEmail || !msg.deletedFor.includes(userEmail));
+            ? normalizedMessages
+            : normalizedMessages.filter((msg) => !userEmail || !msg.deletedFor.includes(userEmail));
 
         return NextResponse.json(visibleMessages);
     } catch (error) {
@@ -37,8 +47,13 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+    const { session, response } = await requireAuth({
+        feature: "team_crm",
+        rateLimitKey: "team_crm_requests",
+    });
+    if (response) return response;
+
     try {
-        const session = await getServerSession(authOptions);
         const body = await req.json();
         const { content, sender, attachment, attachmentType } = body; // client still sends sender name for display
 
@@ -65,8 +80,13 @@ export async function POST(req: Request) {
 
 // Edit Message
 export async function PUT(req: Request) {
+    const { session, response } = await requireAuth({
+        feature: "team_crm",
+        rateLimitKey: "team_crm_requests",
+    });
+    if (response) return response;
+
     try {
-        const session = await getServerSession(authOptions);
         const { id, content } = await req.json();
 
         if (!session?.user?.email) {
@@ -107,8 +127,13 @@ export async function PUT(req: Request) {
 
 // Delete For Me
 export async function PATCH(req: Request) {
+    const { session, response } = await requireAuth({
+        feature: "team_crm",
+        rateLimitKey: "team_crm_requests",
+    });
+    if (response) return response;
+
     try {
-        const session = await getServerSession(authOptions);
         const { id } = await req.json();
 
         if (!session?.user?.email) {
@@ -119,12 +144,15 @@ export async function PATCH(req: Request) {
 
         if (!message) return NextResponse.json({ error: "Message not found" }, { status: 404 });
 
-        const updatedMessage = await prisma.teamMessage.update({
+        const deletedFor = toUniqueStringArray(message.deletedFor);
+        if (!deletedFor.includes(session.user.email)) {
+            deletedFor.push(session.user.email);
+        }
+
+        await prisma.teamMessage.update({
             where: { id },
             data: {
-                deletedFor: {
-                    push: session.user.email
-                }
+                deletedFor,
             }
         });
 
@@ -136,6 +164,12 @@ export async function PATCH(req: Request) {
 
 // Admin Permanent Delete
 export async function DELETE(req: Request) {
+    const { response } = await requireAuth({
+        feature: "team_crm",
+        rateLimitKey: "team_crm_requests",
+    });
+    if (response) return response;
+
     try {
         const { searchParams } = new URL(req.url);
         const id = searchParams.get("id");

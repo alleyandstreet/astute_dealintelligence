@@ -1,13 +1,32 @@
-import { scanReddit } from "@/lib/scanners/reddit";
-import { scanProductHunt } from "@/lib/scanners/producthunt";
-import { scanIndieHustle } from "@/lib/scanners/indiehustle";
-import { scanIndieHackers } from "@/lib/scanners/indiehackers";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { logActivity } from "@/lib/activity-logger";
+import { runUnifiedSearch } from "@/lib/unified-search/orchestrator";
+import type { UnifiedPlatformId } from "@/lib/unified-search/types";
+
+const PLATFORM_MAP: Record<string, UnifiedPlatformId> = {
+    reddit: "reddit",
+    producthunt: "producthunt",
+    indiehustle: "indiehustle",
+    indiehackers: "indiehackers",
+};
+
+function toNumber(value: unknown): number | undefined {
+    if (value === null || value === undefined || value === "") return undefined;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function toList(value: unknown): string[] {
+    if (!Array.isArray(value)) return [];
+    return value.map((entry) => String(entry || "").trim()).filter(Boolean);
+}
 
 export async function POST(request: NextRequest) {
-    const { session, response } = await requireAuth();
+    const { session, response } = await requireAuth({
+        feature: "deal_sourcing",
+        rateLimitKey: "deal_sourcing_requests",
+    });
     if (response) return response;
 
     const encoder = new TextEncoder();
@@ -20,11 +39,11 @@ export async function POST(request: NextRequest) {
 
             try {
                 const body = await request.json();
-                const subreddits: string[] = body.subreddits || [];
-                const keywords: string[] = body.keywords || [];
-
+                const subreddits = toList(body.subreddits);
+                const keywords = toList(body.keywords);
                 const platform: string = body.platform || "reddit";
-                const minRevenue: number = body.minRevenue ? parseInt(body.minRevenue) : 0;
+                const minRevenue = toNumber(body.minRevenue);
+                const platformId = PLATFORM_MAP[platform];
 
                 if (session?.user) {
                     await logActivity({
@@ -34,15 +53,31 @@ export async function POST(request: NextRequest) {
                     });
                 }
 
-                if (platform === "producthunt") {
-                    await scanProductHunt(subreddits, keywords, send);
-                } else if (platform === "indiehustle") {
-                    await scanIndieHustle(subreddits, keywords, minRevenue, send);
-                } else if (platform === "indiehackers") {
-                    await scanIndieHackers(subreddits, keywords, send);
-                } else {
-                    await scanReddit(subreddits, keywords, send);
-                }
+                const summary = await runUnifiedSearch({
+                    input: {
+                        platforms: platformId ? [platformId] : undefined,
+                        seeds: subreddits,
+                        keywords,
+                        minARR: minRevenue,
+                        strictRevenue: Boolean(body.strictRevenue),
+                        maxItemsPerPlatform: toNumber(body.maxItemsPerPlatform) ?? 60,
+                        bypassCache: Boolean(body.bypassCache),
+                    },
+                    send,
+                    userId: (session?.user as any)?.id,
+                });
+
+                send({
+                    type: "complete",
+                    summary: {
+                        postsScanned: summary.scanned,
+                        matchesFound: summary.relevant,
+                        dealsCreated: summary.persisted,
+                        duplicatesRemoved: summary.duplicatesRemoved,
+                        filteredByARR: summary.filteredByARR,
+                        failedSeeds: summary.deadLetters.length,
+                    },
+                });
 
             } catch (error) {
                 console.error("Scan error:", error);

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateGeneralTrends } from "@/lib/gemini";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireAuth } from "@/lib/auth";
 
 const MOCK_TRENDS = {
     global_sentiment: "Bullish",
@@ -21,12 +20,13 @@ const MOCK_TRENDS = {
 };
 
 export async function GET(req: NextRequest) {
-    try {
-        const session = await getServerSession(authOptions);
-        if (!session) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-        }
+    const { response } = await requireAuth({
+        feature: "market_intelligence",
+        rateLimitKey: "market_intelligence_requests",
+    });
+    if (response) return response;
 
+    try {
         const trends = await generateGeneralTrends();
 
         if (!trends) {

@@ -60,7 +60,10 @@ function parseBodyToInput(body: Record<string, unknown>): UnifiedSearchInput {
 }
 
 export async function POST(request: NextRequest) {
-    const { session, response } = await requireAuth();
+    const { session, response } = await requireAuth({
+        feature: "deal_sourcing",
+        rateLimitKey: "deal_sourcing_requests",
+    });
     if (response) return response;
 
     const encoder = new TextEncoder();

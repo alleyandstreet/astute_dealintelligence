@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireAuth } from "@/lib/auth";
 import { db } from "@/lib/db";
 
 export async function POST(req: NextRequest) {
-    try {
-        const session = await getServerSession(authOptions);
-        if (!session?.user) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-        }
+    const { session, response } = await requireAuth({
+        feature: "content_engine",
+        rateLimitKey: "content_engine_requests",
+    });
+    if (response) return response;
 
+    try {
         const { title, prompt, format, persona, blueprint, outline, thinking } = await req.json();
 
         const saved = await db.savedBlueprint.create({
@@ -33,12 +33,13 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
-    try {
-        const session = await getServerSession(authOptions);
-        if (!session?.user) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-        }
+    const { session, response } = await requireAuth({
+        feature: "content_engine",
+        rateLimitKey: "content_engine_requests",
+    });
+    if (response) return response;
 
+    try {
         const saved = await db.savedBlueprint.findMany({
             where: { userId: (session.user as any).id },
             orderBy: { createdAt: "desc" }
@@ -52,12 +53,13 @@ export async function GET(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-    try {
-        const session = await getServerSession(authOptions);
-        if (!session?.user) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-        }
+    const { session, response } = await requireAuth({
+        feature: "content_engine",
+        rateLimitKey: "content_engine_requests",
+    });
+    if (response) return response;
 
+    try {
         const { searchParams } = new URL(req.url);
         const id = searchParams.get("id");
 

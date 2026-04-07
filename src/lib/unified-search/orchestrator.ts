@@ -62,6 +62,14 @@ function emptyFeedbackProfile(): FeedbackProfile {
     };
 }
 
+function isNonRetryableSeedError(error: unknown): boolean {
+    const message = error instanceof Error ? error.message : String(error);
+    return /\b(403|404)\b/.test(message)
+        || /forbidden/i.test(message)
+        || /not found/i.test(message)
+        || /private subreddit/i.test(message);
+}
+
 function toCandidate(item: RawScrapedItem, classification: ReturnType<typeof classifyDealCandidate>): UnifiedDealCandidate {
     return {
         ...item,
@@ -129,7 +137,12 @@ export async function runUnifiedSearch({ input, send, userId }: RunUnifiedSearch
                         if (!scraped) {
                             scraped = await withRetry(
                                 () => config.fetcher({ seed, input }),
-                                { retries: 2, baseDelayMs: 600, maxDelayMs: 4_000 },
+                                {
+                                    retries: 2,
+                                    baseDelayMs: 600,
+                                    maxDelayMs: 4_000,
+                                    shouldRetry: (error) => !isNonRetryableSeedError(error),
+                                },
                                 (attempt, error) => {
                                     retryCount = attempt;
                                     send({

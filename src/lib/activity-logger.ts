@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { db } from "./db";
 
 export type ActivityAction =
@@ -23,7 +24,11 @@ export type ActivityAction =
     | "handoff_prepared"
     | "unified_feedback"
     | "unified_scan_started"
-    | "unified_scan_completed";
+    | "unified_scan_completed"
+    | "crm_task_created"
+    | "crm_task_updated"
+    | "intern_clock_in"
+    | "intern_clock_out";
 
 interface LogActivityParams {
     userId: string;
@@ -71,7 +76,7 @@ export async function getActivityLogs({
     limit?: number;
     offset?: number;
 }) {
-    const where: any = {};
+    const where: Prisma.ActivityLogWhereInput = {};
 
     if (userId) where.userId = userId;
     if (action) where.action = action;

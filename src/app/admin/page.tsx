@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import AdminLayout from "@/components/AdminLayout";
-import { Users, Activity, TrendingUp, Building2, BarChart3, PieChart as PieIcon, Zap, HelpCircle, MessageSquare } from "lucide-react";
+import { Users, Activity, TrendingUp, Building2, BarChart3, PieChart as PieIcon, Zap, HelpCircle, MessageSquare, Shield } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
 export default function AdminDashboard() {
@@ -200,6 +200,7 @@ export default function AdminDashboard() {
                                     <h3 className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-6">Execution Power Tools</h3>
                                     <div className="space-y-4">
                                         {[
+                                            { label: "Control Center", path: "/admin/control-center", icon: Shield, desc: "Permissions, limits & onboarding", color: "emerald" },
                                             { label: "User Management", path: "/admin/users", icon: Users, desc: "Team IDs & Passwords", color: "cyan" },
                                             { label: "Business Directory", path: "/admin/businesses", icon: Building2, desc: "Global Asset Ledger", color: "green" },
                                             { label: "Scanner Config", path: "/admin/config", icon: Activity, desc: "Subreddits & Keywords", color: "yellow" },

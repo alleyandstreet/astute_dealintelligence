@@ -1,7 +1,14 @@
 import { model } from "@/lib/gemini";
 import { NextRequest, NextResponse } from "next/server";
+import { requireAuth } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
+    const { response } = await requireAuth({
+        feature: "content_engine",
+        rateLimitKey: "content_engine_requests",
+    });
+    if (response) return response;
+
     try {
         const { topic, platform, style, currentCaption } = await req.json();
 

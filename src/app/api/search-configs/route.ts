@@ -3,16 +3,14 @@ import { NextRequest, NextResponse } from "next/server";
 
 // GET all saved search configs
 export async function GET() {
-    console.log("DEBUG: GET /api/search-configs starting...");
     try {
         const configs = await db.searchConfig.findMany({
             orderBy: { createdAt: "desc" },
         });
-        console.log(`DEBUG: Successfully fetched ${configs.length} configs`);
         return NextResponse.json(configs);
     } catch (error) {
-        console.error("CRITICAL DEBUG: Error fetching search configs:", error);
-        return NextResponse.json({ error: "Failed to fetch configs", details: String(error) }, { status: 500 });
+        console.error("Error fetching search configs:", error);
+        return NextResponse.json({ error: "Failed to fetch configs" }, { status: 500 });
     }
 }
 

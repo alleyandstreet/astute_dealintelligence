@@ -1,4 +1,5 @@
 import type { RawScrapedItem, UnifiedPlatformContext } from "@/lib/unified-search/types";
+import { fetchJsonWithTimeout } from "@/lib/unified-search/sources/http";
 
 interface IndieHustleArchiveItem {
     id?: string;
@@ -19,16 +20,19 @@ export async function fetchIndieHustleSeed(context: UnifiedPlatformContext): Pro
 
     for (let offset = 0; offset < maxItems; offset += 50) {
         const apiUrl = `https://www.indiehustle.co/api/v1/archive?sort=new&search=${encodeURIComponent(search)}&offset=${offset}&limit=50`;
-        const response = await fetch(apiUrl, {
-            headers: {
-                "User-Agent": "DealIntelUnified/1.0 (+https://localhost)",
+        const data = await fetchJsonWithTimeout<IndieHustleArchiveItem[]>(
+            apiUrl,
+            {
+                headers: {
+                    "User-Agent": "DealIntelUnified/1.0 (+https://alleyandstreet.com)",
+                },
             },
-        });
+            { timeoutMs: 12000, label: `indiehustle:${search}:${offset}` },
+        ).catch(() => null);
 
-        if (!response.ok) break;
-
-        const data = (await response.json()) as IndieHustleArchiveItem[];
-        if (!Array.isArray(data) || data.length === 0) break;
+        if (!Array.isArray(data) || data.length === 0) {
+            break;
+        }
 
         for (const post of data) {
             const url = post.canonical_url || (post.slug ? `https://www.indiehustle.co/p/${post.slug}` : undefined);

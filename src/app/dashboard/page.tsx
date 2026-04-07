@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import Link from "next/link";
 import {
   TrendingUp,
@@ -16,15 +16,14 @@ import {
   Trash2,
   Loader2,
   HelpCircle,
-  Command,
   Sparkles,
+  Users,
 } from "lucide-react";
 import { toast } from "sonner";
 import DealModal from "@/components/DealModal";
 import { Deal } from "@/types";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { DealTrendChart } from "@/components/charts/DealTrendChart";
-import { motion } from "framer-motion";
 
 interface DashboardStats {
   totalDeals: number;
@@ -32,6 +31,33 @@ interface DashboardStats {
   qualified: number;
   contacted: number;
   avgViability: number;
+}
+
+function computeDashboardStats(deals: Deal[]): DashboardStats {
+  let newLeads = 0;
+  let qualified = 0;
+  let contacted = 0;
+  let scoreTotal = 0;
+  let scoreCount = 0;
+
+  for (const deal of deals) {
+    if (deal.status === "new_leads") newLeads += 1;
+    else if (deal.status === "qualified") qualified += 1;
+    else if (deal.status === "contacted") contacted += 1;
+
+    if (typeof deal.viabilityScore === "number") {
+      scoreTotal += deal.viabilityScore;
+      scoreCount += 1;
+    }
+  }
+
+  return {
+    totalDeals: deals.length,
+    newLeads,
+    qualified,
+    contacted,
+    avgViability: scoreCount > 0 ? Math.round(scoreTotal / scoreCount) : 0,
+  };
 }
 
 export default function Dashboard() {
@@ -51,40 +77,25 @@ export default function Dashboard() {
   const [redoStack, setRedoStack] = useState<Deal[]>([]);
   const [isResetting, setIsResetting] = useState(false);
 
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        const res = await fetch("/api/deals");
-        if (res.ok) {
-          const deals = await res.json();
-          setAllDeals(deals);
-          setRecentDeals(deals.slice(0, 5));
-
-          // Calculate stats
-          const newLeads = deals.filter((d: Deal) => d.status === "new_leads").length;
-          const qualified = deals.filter((d: Deal) => d.status === "qualified").length;
-          const contacted = deals.filter((d: Deal) => d.status === "contacted").length;
-          const scores = deals.map((d: Deal) => d.viabilityScore).filter((s: number | null | undefined): s is number => typeof s === 'number');
-          const avgViability = scores.length > 0
-            ? Math.round(scores.reduce((a: number, b: number) => a + b, 0) / scores.length)
-            : 0;
-
-          setStats({
-            totalDeals: deals.length,
-            newLeads,
-            qualified,
-            contacted,
-            avgViability,
-          });
-        }
-      } catch (error) {
-        console.error("Failed to fetch deals:", error);
-      } finally {
-        setLoading(false);
+  const fetchData = useCallback(async () => {
+    try {
+      const res = await fetch("/api/deals");
+      if (res.ok) {
+        const deals = (await res.json()) as Deal[];
+        setAllDeals(deals);
+        setRecentDeals(deals.slice(0, 5));
+        setStats(computeDashboardStats(deals));
       }
+    } catch (error) {
+      console.error("Failed to fetch deals:", error);
+    } finally {
+      setLoading(false);
     }
-    fetchData();
   }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const handleDealDeleted = (id: string) => {
     setRecentDeals((prev) => prev.filter((d) => d.id !== id));
@@ -125,7 +136,7 @@ export default function Dashboard() {
         setRedoStack(prev => [...prev, newDeal]);
         toast.success("Restored: " + dealToRestore.name);
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to restore deal");
     }
   };
@@ -168,7 +179,7 @@ export default function Dashboard() {
         setRedoStack([]);
         toast.success("All deals cleared");
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to reset deals");
     } finally {
       setIsResetting(false);
@@ -183,12 +194,29 @@ export default function Dashboard() {
     setIsModalOpen(true);
   };
 
-  const statCards = [
+  const statCards = useMemo(() => [
     { label: "Total Deals", value: stats.totalDeals, icon: Briefcase, color: "emerald" },
     { label: "New Leads", value: stats.newLeads, icon: Zap, color: "sky" },
     { label: "Qualified", value: stats.qualified, icon: Target, color: "amber" },
     { label: "Avg. Viability", value: `${stats.avgViability}%`, icon: TrendingUp, color: "teal" },
-  ];
+  ], [stats.avgViability, stats.newLeads, stats.qualified, stats.totalDeals]);
+
+  const selectedRecentIndex = useMemo(
+    () => (selectedDeal ? recentDeals.findIndex((deal) => deal.id === selectedDeal.id) : -1),
+    [recentDeals, selectedDeal],
+  );
+
+  const goToNextRecentDeal = useCallback(() => {
+    if (selectedRecentIndex !== -1 && selectedRecentIndex < recentDeals.length - 1) {
+      setSelectedDeal(recentDeals[selectedRecentIndex + 1]);
+    }
+  }, [recentDeals, selectedRecentIndex]);
+
+  const goToPrevRecentDeal = useCallback(() => {
+    if (selectedRecentIndex > 0) {
+      setSelectedDeal(recentDeals[selectedRecentIndex - 1]);
+    }
+  }, [recentDeals, selectedRecentIndex]);
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 p-6">
@@ -262,7 +290,7 @@ export default function Dashboard() {
         <div className="lg:col-span-2 space-y-8">
           {/* Stats Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {statCards.map((stat, index) => {
+            {statCards.map((stat) => {
               const Icon = stat.icon;
               return (
                 <GlassCard
@@ -317,7 +345,7 @@ export default function Dashboard() {
         {/* Right Column: Recent Deals & Quick Actions */}
         <div className="space-y-6">
           {/* Quick Actions */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <Link href="/pipeline" className="group">
               <GlassCard className="p-4 h-full flex flex-col items-center justify-center text-center cursor-pointer hover:border-emerald-500/30 transition-colors" intensity="low">
                 <div className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
@@ -332,6 +360,14 @@ export default function Dashboard() {
                   <Briefcase className="w-5 h-5 text-amber-400" />
                 </div>
                 <span className="text-sm font-medium text-zinc-300 group-hover:text-amber-400 transition-colors">All Deals</span>
+              </GlassCard>
+            </Link>
+            <Link href="/crm" className="group">
+              <GlassCard className="p-4 h-full flex flex-col items-center justify-center text-center cursor-pointer hover:border-cyan-500/30 transition-colors" intensity="low">
+                <div className="w-10 h-10 rounded-full bg-cyan-500/10 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                  <Users className="w-5 h-5 text-cyan-400" />
+                </div>
+                <span className="text-sm font-medium text-zinc-300 group-hover:text-cyan-400 transition-colors">Team CRM</span>
               </GlassCard>
             </Link>
           </div>
@@ -414,19 +450,13 @@ export default function Dashboard() {
         onDelete={handleDelete}
         initialTab={initialModalTab}
         onNext={
-          selectedDeal && recentDeals.indexOf(selectedDeal) < recentDeals.length - 1
-            ? () => {
-              const idx = recentDeals.findIndex((d) => d.id === selectedDeal.id);
-              setSelectedDeal(recentDeals[idx + 1]);
-            }
+          selectedRecentIndex >= 0 && selectedRecentIndex < recentDeals.length - 1
+            ? goToNextRecentDeal
             : undefined
         }
         onPrev={
-          selectedDeal && recentDeals.indexOf(selectedDeal) > 0
-            ? () => {
-              const idx = recentDeals.findIndex((d) => d.id === selectedDeal.id);
-              setSelectedDeal(recentDeals[idx - 1]);
-            }
+          selectedRecentIndex > 0
+            ? goToPrevRecentDeal
             : undefined
         }
       />

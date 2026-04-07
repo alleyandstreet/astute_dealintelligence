@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireAuth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { toStringArray } from "@/lib/json-arrays";
 
 export async function GET(req: NextRequest) {
+    const { session, response } = await requireAuth({
+        feature: "content_engine",
+        rateLimitKey: "content_engine_requests",
+    });
+    if (response) return response;
+
     try {
-        const session = await getServerSession(authOptions);
         const userId = (session?.user as any)?.id;
 
         if (!userId) {
@@ -17,8 +22,12 @@ export async function GET(req: NextRequest) {
             orderBy: { scheduledFor: 'asc' },
         });
 
-        // Ensure dates are serialized correctly for JSON
-        return NextResponse.json(posts);
+        return NextResponse.json(
+            posts.map((post) => ({
+                ...post,
+                hashtags: toStringArray(post.hashtags),
+            }))
+        );
     } catch (error) {
         console.error("Calendar fetch error:", error);
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });

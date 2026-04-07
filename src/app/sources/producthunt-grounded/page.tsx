@@ -19,12 +19,13 @@ import {
     AlertCircle,
     ChevronRight,
     ArrowLeft,
-    User
+    User,
+    Plus
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { GlassCard } from "@/components/ui/GlassCard";
-import DateTimePicker from "@/components/DateTimePicker";
+import MultiDatePicker from "@/components/MultiDatePicker";
 
 interface ProductHuntListing {
     name: string;
@@ -40,20 +41,23 @@ interface ProductHuntListing {
         email?: string;
     };
     categories: string[];
+    sourceDate?: string;
 }
 
 export default function ProductHuntGroundedPage() {
-    const [date, setDate] = useState<Date | null>(new Date());
+    const [dates, setDates] = useState<Date[]>([new Date()]);
     const [minUpvotes, setMinUpvotes] = useState(20);
     const [maxUpvotes, setMaxUpvotes] = useState(0);
     const [isScanning, setIsScanning] = useState(false);
     const [results, setResults] = useState<ProductHuntListing[]>([]);
     const [statusMessage, setStatusMessage] = useState("");
     const [sortConfig, setSortConfig] = useState<{ key: keyof ProductHuntListing, direction: 'asc' | 'desc' }>({ key: 'upvotes', direction: 'desc' });
+    const [pushingSourceIds, setPushingSourceIds] = useState<Set<string>>(new Set());
+    const [pushedSourceIds, setPushedSourceIds] = useState<Set<string>>(new Set());
 
     const handleScan = async () => {
-        if (!date) {
-            toast.error("Select a target date first.");
+        if (dates.length === 0) {
+            toast.error("Select at least one target date.");
             return;
         }
         setIsScanning(true);
@@ -61,44 +65,48 @@ export default function ProductHuntGroundedPage() {
         setStatusMessage("Initializing grounded search...");
 
         try {
-            const dateValue = format(date, "yyyy-MM-dd");
+            const dateValues = dates
+                .map((d) => format(d, "yyyy-MM-dd"))
+                .sort();
             const response = await fetch("/api/scan/producthunt-grounded", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ date: dateValue, minUpvotes, maxUpvotes }),
+                body: JSON.stringify({ dates: dateValues, minUpvotes, maxUpvotes }),
             });
 
             if (!response.body) throw new Error("No response body");
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
+            let buffer = "";
 
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
 
-                const chunk = decoder.decode(value, { stream: true });
-                const lines = chunk.split("\n");
+                buffer += decoder.decode(value, { stream: true });
+                const parts = buffer.split("\n\n");
+                buffer = parts.pop() || "";
 
-                for (const line of lines) {
-                    if (line.startsWith("data: ")) {
-                        try {
-                            const data = JSON.parse(line.slice(6));
-                            if (data.type === "status") {
-                                setStatusMessage(data.message);
-                            } else if (data.type === "log") {
-                                // Optional: handle logs if needed
-                                console.log(data.message);
-                            } else if (data.type === "complete") {
-                                setResults(data.data || []);
-                                toast.success(`Extracted ${data.data?.length || 0} products!`);
-                            } else if (data.type === "error") {
-                                toast.error(data.message);
-                                setStatusMessage("Error: " + data.message);
-                            }
-                        } catch (e) {
-                            console.error("Parse error", e);
+                for (const part of parts) {
+                    const line = part.trim();
+                    if (!line.startsWith("data: ")) continue;
+                    try {
+                        const data = JSON.parse(line.slice(6));
+                        if (data.type === "status") {
+                            setStatusMessage(data.message);
+                        } else if (data.type === "log") {
+                            // Optional: handle logs if needed
+                            console.log(data.message);
+                        } else if (data.type === "complete") {
+                            setResults(data.data || []);
+                            toast.success(`Extracted ${data.data?.length || 0} products!`);
+                        } else if (data.type === "error") {
+                            toast.error(data.message);
+                            setStatusMessage("Error: " + data.message);
                         }
+                    } catch (e) {
+                        console.error("Parse error", e);
                     }
                 }
             }
@@ -136,8 +144,9 @@ export default function ProductHuntGroundedPage() {
     const exportToCSV = () => {
         if (results.length === 0) return;
 
-        const headers = ["Name", "Tagline", "Upvotes", "Product Hunt URL", "Website URL", "Makers", "Twitter", "LinkedIn", "Categories"];
+        const headers = ["Date", "Name", "Tagline", "Upvotes", "Product Hunt URL", "Website URL", "Makers", "Twitter", "LinkedIn", "Categories"];
         const rows = results.map(p => [
+            p.sourceDate || "",
             `"${p.name.replace(/"/g, '""')}"`,
             `"${p.tagline.replace(/"/g, '""')}"`,
             p.upvotes,
@@ -154,12 +163,85 @@ export default function ProductHuntGroundedPage() {
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.setAttribute("href", url);
-        const dateValue = date ? format(date, "yyyy-MM-dd") : "unknown_date";
-        link.setAttribute("download", `producthunt_scrape_${dateValue}.csv`);
+        const dateValues = dates.length
+            ? dates.map((d) => format(d, "yyyy-MM-dd")).sort()
+            : ["unknown_date"];
+        const fileSuffix = dateValues.length > 1 ? `${dateValues[0]}_to_${dateValues[dateValues.length - 1]}` : dateValues[0];
+        link.setAttribute("download", `producthunt_scrape_${fileSuffix}.csv`);
         link.style.visibility = 'hidden';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+    };
+
+    const getProductSourceId = (product: ProductHuntListing) => {
+        return `producthunt_grounded:${product.productHuntUrl.trim().toLowerCase()}`;
+    };
+
+    const handlePushToPipeline = async (product: ProductHuntListing) => {
+        const sourceId = getProductSourceId(product);
+
+        if (pushingSourceIds.has(sourceId) || pushedSourceIds.has(sourceId)) return;
+
+        setPushingSourceIds((prev) => {
+            const next = new Set(prev);
+            next.add(sourceId);
+            return next;
+        });
+
+        try {
+            const response = await fetch("/api/deals", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    name: product.name,
+                    description: product.tagline,
+                    industry: product.categories?.[0] || null,
+                    url: product.productWebsiteUrl || null,
+                    source: "producthunt_grounded",
+                    sourceId,
+                    sourceName: "Product Hunt Grounded",
+                    redditUrl: product.productHuntUrl || null,
+                    contactWebsite: product.contactLinks.website || product.productWebsiteUrl || null,
+                    contactEmail: product.contactLinks.email || null,
+                    contactTwitter: product.contactLinks.twitter || null,
+                    contactLinkedIn: product.contactLinks.linkedin || null,
+                    businessType: product.categories.length ? product.categories.join(", ") : null,
+                    status: "new_leads",
+                }),
+            });
+
+            const data = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                if (response.status === 409) {
+                    setPushedSourceIds((prev) => {
+                        const next = new Set(prev);
+                        next.add(sourceId);
+                        return next;
+                    });
+                    toast.info(`${product.name} is already in pipeline`);
+                    return;
+                }
+
+                throw new Error(data.error || "Failed to push to pipeline");
+            }
+
+            setPushedSourceIds((prev) => {
+                const next = new Set(prev);
+                next.add(sourceId);
+                return next;
+            });
+            toast.success(`Pushed ${product.name} to pipeline`);
+        } catch (error: any) {
+            toast.error(error.message || "Failed to push to pipeline");
+        } finally {
+            setPushingSourceIds((prev) => {
+                const next = new Set(prev);
+                next.delete(sourceId);
+                return next;
+            });
+        }
     };
 
     return (
@@ -215,13 +297,12 @@ export default function ProductHuntGroundedPage() {
                     <div className="space-y-2">
                         <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 flex items-center gap-2">
                             <Calendar className="w-3 h-3 text-[#DA552F]" />
-                            Target Date
+                            Target Dates
                         </label>
-                        <DateTimePicker
-                            value={date}
-                            onChange={setDate}
-                            placeholder="Select date"
-                            showTime={false}
+                        <MultiDatePicker
+                            value={dates}
+                            onChange={setDates}
+                            placeholder="Select dates"
                             accent="amber"
                             maxDate={new Date()}
                         />
@@ -267,7 +348,7 @@ export default function ProductHuntGroundedPage() {
                                 {isScanning
                                     ? statusMessage
                                     : results.length > 0
-                                        ? `Found ${results.length} products for ${date ? format(date, "MMM dd, yyyy") : "selected date"}`
+                                        ? `Found ${results.length} products across ${dates.length} date${dates.length === 1 ? "" : "s"}`
                                         : "Ready to scan leaderboard"}
                             </span>
                         </div>
@@ -295,6 +376,7 @@ export default function ProductHuntGroundedPage() {
                                             <th className="px-6 py-4 cursor-pointer hover:text-white" onClick={() => toggleSort('upvotes')}>
                                                 <div className="flex items-center gap-2">Upvotes <ArrowUpDown className="w-3 h-3" /></div>
                                             </th>
+                                            <th className="px-6 py-4">Date</th>
                                             <th className="px-6 py-4">Makers & Contact</th>
                                             <th className="px-6 py-4">Actions</th>
                                         </tr>
@@ -320,8 +402,11 @@ export default function ProductHuntGroundedPage() {
                                                 <td className="px-6 py-6">
                                                     <div className="flex flex-col">
                                                         <span className="text-xl font-black text-[#DA552F]">{product.upvotes}</span>
-                                                        <span className="text-[10px] text-zinc-600 uppercase font-black tracking-tighter">Verified</span>
+                                                        <span className="text-[10px] text-zinc-600 uppercase font-black tracking-tighter">Reported</span>
                                                     </div>
+                                                </td>
+                                                <td className="px-6 py-6 text-sm text-zinc-400">
+                                                    {product.sourceDate || "—"}
                                                 </td>
                                                 <td className="px-6 py-6">
                                                     <div className="space-y-2">
@@ -355,6 +440,24 @@ export default function ProductHuntGroundedPage() {
                                                 </td>
                                                 <td className="px-6 py-6">
                                                     <div className="flex items-center gap-2">
+                                                        <button
+                                                            onClick={() => handlePushToPipeline(product)}
+                                                            disabled={pushingSourceIds.has(getProductSourceId(product)) || pushedSourceIds.has(getProductSourceId(product))}
+                                                            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 text-xs font-bold hover:bg-cyan-500/20 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                                                        >
+                                                            {pushingSourceIds.has(getProductSourceId(product)) ? (
+                                                                <Loader2 className="w-3 h-3 animate-spin" />
+                                                            ) : pushedSourceIds.has(getProductSourceId(product)) ? (
+                                                                <CheckCircle2 className="w-3 h-3" />
+                                                            ) : (
+                                                                <Plus className="w-3 h-3" />
+                                                            )}
+                                                            {pushingSourceIds.has(getProductSourceId(product))
+                                                                ? "Pushing..."
+                                                                : pushedSourceIds.has(getProductSourceId(product))
+                                                                    ? "Pushed"
+                                                                    : "Push to Pipeline"}
+                                                        </button>
                                                         <a
                                                             href={product.productHuntUrl}
                                                             target="_blank"

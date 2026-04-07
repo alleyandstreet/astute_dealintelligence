@@ -1,14 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireAuth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { toStringArray, toUniqueStringArray } from "@/lib/json-arrays";
 
 export async function DELETE(
     req: NextRequest,
     context: { params: Promise<{ id: string }> }
 ) {
+    const { session, response } = await requireAuth({
+        feature: "content_engine",
+        rateLimitKey: "content_engine_requests",
+    });
+    if (response) return response;
+
     try {
-        const session = await getServerSession(authOptions);
         const userId = (session?.user as any)?.id;
 
         const params = await context.params;
@@ -68,7 +73,10 @@ export async function GET(
 
         // Allow public access for "handoff" posts or if it's a valid ID
         // (Removing session check here to enable phone scanning without login)
-        return NextResponse.json(post);
+        return NextResponse.json({
+            ...post,
+            hashtags: toStringArray(post.hashtags),
+        });
     } catch (error) {
         console.error("Fetch error:", error);
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
@@ -79,8 +87,13 @@ export async function PATCH(
     req: NextRequest,
     context: { params: Promise<{ id: string }> }
 ) {
+    const { session, response } = await requireAuth({
+        feature: "content_engine",
+        rateLimitKey: "content_engine_requests",
+    });
+    if (response) return response;
+
     try {
-        const session = await getServerSession(authOptions);
         const userId = (session?.user as any)?.id;
         if (!userId) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -107,13 +120,19 @@ export async function PATCH(
             where: { id },
             data: {
                 caption: body.caption,
-                hashtags: body.hashtags,
+                hashtags: toUniqueStringArray(body.hashtags),
                 scheduledFor: body.scheduledFor ? new Date(body.scheduledFor) : undefined,
                 status: body.status
             }
         });
 
-        return NextResponse.json({ success: true, post: updatedPost });
+        return NextResponse.json({
+            success: true,
+            post: {
+                ...updatedPost,
+                hashtags: toStringArray(updatedPost.hashtags),
+            },
+        });
     } catch (error) {
         console.error("Update error:", error);
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });

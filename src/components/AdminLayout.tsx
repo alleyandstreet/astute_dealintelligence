@@ -3,7 +3,7 @@
 import { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Users, Activity, LayoutDashboard } from "lucide-react";
+import { Users, Activity, LayoutDashboard, Shield } from "lucide-react";
 
 interface AdminLayoutProps {
     children: ReactNode;
@@ -14,6 +14,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
     const navItems = [
         { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
+        { href: "/admin/control-center", label: "Control Center", icon: Shield },
         { href: "/admin/users", label: "Users", icon: Users },
         { href: "/admin/logs", label: "Activity Logs", icon: Activity },
     ];

@@ -12,22 +12,20 @@ import {
     Briefcase,
     LogOut,
     HelpCircle,
-    ShieldAlert,
     X,
     Layers,
     MessageCircle,
     ChevronDown,
     ChevronRight,
     Target,
-    Calendar,
-    Zap,
+    type LucideIcon,
 } from "lucide-react";
-import { signOut, useSession } from "next-auth/react";
+import { signOut } from "next-auth/react";
 import { AstuteLogo } from "@/components/AstuteLogo";
 
 interface NavItem {
     label: string;
-    icon?: any;
+    icon?: LucideIcon;
     href?: string;
     children?: NavItem[];
 }
@@ -163,7 +161,6 @@ const SidebarItem = ({ item, level = 0, onClose, pathname }: { item: NavItem, le
 };
 
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
-    const { data: session } = useSession();
     const pathname = usePathname();
     const isLoginPage = pathname === "/login";
     const isHubPage = pathname === "/";

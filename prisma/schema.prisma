@@ -4,7 +4,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -20,8 +20,17 @@ model User {
   lastLogin      DateTime?
   logs           ActivityLog[]
   businesses     Business[]
+  assignedDeals  Deal[]          @relation("DealOwner")
   scheduledPosts ScheduledPost[]
   savedBlueprints SavedBlueprint[]
+  assignedCrmTasks CrmTask[]     @relation("TaskAssignee")
+  createdCrmTasks  CrmTask[]     @relation("TaskCreator")
+  attendanceSessions InternAttendance[] @relation("InternAttendanceUser")
+  featureAccesses UserFeatureAccess[]
+  onboardingTemplatesCreated OnboardingTemplate[] @relation("OnboardingTemplateCreator")
+  onboardingAssignments OnboardingAssignment[] @relation("OnboardingAssignee")
+  onboardingAssignmentsSet OnboardingAssignment[] @relation("OnboardingAssignedBy")
+  notesAuthored  Note[]          @relation("NoteAuthor")
 }
 
 model SavedBlueprint {
@@ -107,17 +116,35 @@ model Deal {
   contactTwitter  String?
   contactLinkedIn String?
   contactDiscord  String?
+  ownerId         String?
+  owner           User?      @relation("DealOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  priority        String     @default("medium")
+  nextAction      String?
+  nextActionAt    DateTime?
+  lastContactedAt DateTime?
   tags            DealTag[]
   notes           Note[]
   outreaches      Outreach[]
+  crmTasks        CrmTask[]
+
+  @@index([status])
+  @@index([ownerId])
+  @@index([nextActionAt])
+  @@index([source, createdAt])
 }
 
 model Note {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
   content   String
+  authorName String?
+  userId    String?
   dealId    String
+  user      User?    @relation("NoteAuthor", fields: [userId], references: [id], onDelete: SetNull)
   deal      Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([dealId, createdAt])
+  @@index([userId])
 }
 
 model Outreach {
@@ -173,7 +200,7 @@ model TeamMessage {
   attachment     String?
   attachmentType String?
   editHistory    Json?
-  deletedFor     String[] @default([])
+  deletedFor     Json     @default("[]")
 }
 
 model ScheduledPost {
@@ -181,7 +208,7 @@ model ScheduledPost {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   caption         String
-  hashtags        String[]
+  hashtags        Json     @default("[]")
   scheduledFor    DateTime
   status          String   @default("scheduled")
   mediaUrls       String
@@ -189,4 +216,101 @@ model ScheduledPost {
   platform        String   @default("instagram")
   reminderEnabled Boolean  @default(false)
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model CrmTask {
+  id           String   @id @default(cuid())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  title        String
+  description  String?
+  status       String   @default("todo")
+  priority     String   @default("medium")
+  dueDate      DateTime?
+  completedAt  DateTime?
+  notes        String?
+  dealId       String?
+  assignedToId String?
+  createdById  String?
+  deal         Deal?    @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  assignedTo   User?    @relation("TaskAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  createdBy    User?    @relation("TaskCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([priority])
+  @@index([assignedToId])
+  @@index([dueDate])
+}
+
+model InternAttendance {
+  id              String   @id @default(cuid())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  userId          String
+  clockInAt       DateTime @default(now())
+  clockOutAt      DateTime?
+  durationMinutes Int?
+  notes           String?
+  user            User     @relation("InternAttendanceUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, clockInAt])
+  @@index([clockOutAt])
+}
+
+model AppSetting {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  key       String   @unique
+  value     Json
+}
+
+model UserFeatureAccess {
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  userId     String
+  featureKey String
+  enabled    Boolean  @default(true)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, featureKey])
+  @@index([featureKey])
+}
+
+model OnboardingTemplate {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  name        String
+  description String?
+  steps       Json     @default("[]")
+  isDefault   Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  createdById String?
+  createdBy   User?    @relation("OnboardingTemplateCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  assignments OnboardingAssignment[]
+
+  @@index([isDefault, isActive])
+}
+
+model OnboardingAssignment {
+  id           String             @id @default(cuid())
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  userId       String
+  templateId   String
+  status       String             @default("assigned")
+  progress     Json
+  dueDate      DateTime?
+  startedAt    DateTime?
+  completedAt  DateTime?
+  notes        String?
+  assignedById String?
+  user         User               @relation("OnboardingAssignee", fields: [userId], references: [id], onDelete: Cascade)
+  template     OnboardingTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  assignedBy   User?              @relation("OnboardingAssignedBy", fields: [assignedById], references: [id], onDelete: SetNull)
+
+  @@index([userId, status])
+  @@index([templateId])
 }

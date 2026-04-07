@@ -291,6 +291,7 @@ export default function DealModal({ deal, isOpen, onClose, onStatusChange, onDel
     const sellerSignals: string[] = deal.sellerSignals ? JSON.parse(deal.sellerSignals) : [];
     const defaultOutreach = generateOutreachMessage(deal);
     const displayedMessage = aiOutreachMessage || defaultOutreach;
+    const getNoteAuthor = (note: Note) => note.authorName || note.user?.username || "Unknown teammate";
 
     const copyMessage = async () => {
         await navigator.clipboard.writeText(displayedMessage);
@@ -875,9 +876,11 @@ export default function DealModal({ deal, isOpen, onClose, onStatusChange, onDel
                                                             <Trash2 className="w-4 h-4" />
                                                         </button>
                                                     </div>
-                                                    <p className="text-xs text-[var(--text-dim)] mt-2">
-                                                        {new Date(note.createdAt).toLocaleString()}
-                                                    </p>
+                                                    <div className="mt-2 flex items-center gap-2 text-xs text-[var(--text-dim)]">
+                                                        <span className="font-medium text-cyan-400">{getNoteAuthor(note)}</span>
+                                                        <span>•</span>
+                                                        <span>{new Date(note.createdAt).toLocaleString()}</span>
+                                                    </div>
                                                 </motion.div>
                                             ))}
                                         </div>

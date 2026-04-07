@@ -1,18 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireAuth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { toUniqueStringArray } from "@/lib/json-arrays";
 
 export async function POST(req: NextRequest) {
+    const { session, response } = await requireAuth({
+        feature: "content_engine",
+        rateLimitKey: "content_engine_requests",
+    });
+    if (response) return response;
+
     try {
-        const session = await getServerSession(authOptions);
-
-        if (!session?.user) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-        }
-
         const body = await req.json();
         const { caption, hashtags, scheduledFor, mediaFiles, platform, reminderEnabled } = body;
+        const normalizedHashtags = toUniqueStringArray(hashtags);
 
         // Retrieve user ID from session
         const userId = (session.user as any).id;
@@ -35,7 +36,7 @@ export async function POST(req: NextRequest) {
         const post = await db.scheduledPost.create({
             data: {
                 caption,
-                hashtags: Array.isArray(hashtags) ? hashtags : [],
+                hashtags: normalizedHashtags,
                 platform: platform || "instagram",
                 scheduledFor: scheduledDate,
                 userId: userId,
@@ -45,7 +46,7 @@ export async function POST(req: NextRequest) {
             },
         });
 
-        return NextResponse.json({ success: true, post });
+        return NextResponse.json({ success: true, post: { ...post, hashtags: normalizedHashtags } });
 
     } catch (error) {
         console.error("Scheduling error:", error);

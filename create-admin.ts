@@ -3,13 +3,13 @@ import { hashPassword } from "./src/lib/password";
 
 async function createSuperAdmin() {
     try {
-        // Check if super_admin already exists
-        const existing = await db.user.findFirst({
-            where: { role: "super_admin" },
+        // Check if 'admin' user already exists
+        const existing = await db.user.findUnique({
+            where: { username: "admin" },
         });
 
         if (existing) {
-            console.log("Super admin already exists:", existing.username);
+            console.log("Admin user 'admin' already exists.");
             return;
         }
 

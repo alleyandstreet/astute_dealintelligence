@@ -6,7 +6,6 @@ import {
     TrendingUp,
     AlertTriangle,
     ExternalLink,
-    MoreHorizontal,
     MessageSquare,
     Trash2,
     Copy,
@@ -15,9 +14,9 @@ import {
     DollarSign,
     Target,
     Zap,
-    Terminal
+    Users
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { toast } from "sonner";
 
 interface DealCardProps {
@@ -28,6 +27,13 @@ interface DealCardProps {
     selected?: boolean;
     onSelect?: () => void;
     selectionMode?: boolean;
+    activeCollaborators?: Array<{
+        userId: string;
+        username: string;
+        email?: string | null;
+        role?: string | null;
+        lastSeenAt: string;
+    }>;
 }
 
 function formatCurrency(value: number | null | undefined): string {
@@ -52,15 +58,48 @@ function formatTimeAgo(dateString: string): string {
     return date.toLocaleDateString();
 }
 
-export default function DealCard({ deal, onClick, onDelete, selected = false, onSelect, selectionMode = false }: DealCardProps) {
+export default function DealCard({
+    deal,
+    onClick,
+    onDelete,
+    selected = false,
+    onSelect,
+    selectionMode = false,
+    activeCollaborators = [],
+}: DealCardProps) {
     const [isHovered, setIsHovered] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
-    const riskFlags: string[] = deal.riskFlags ? JSON.parse(deal.riskFlags) : [];
-    const sellerSignals: string[] = deal.sellerSignals ? JSON.parse(deal.sellerSignals) : [];
+    const riskFlags = useMemo<string[]>(() => {
+        if (!deal.riskFlags) return [];
+        try {
+            return JSON.parse(deal.riskFlags) as string[];
+        } catch {
+            return [];
+        }
+    }, [deal.riskFlags]);
+    const sellerSignals = useMemo<string[]>(() => {
+        if (!deal.sellerSignals) return [];
+        try {
+            return JSON.parse(deal.sellerSignals) as string[];
+        } catch {
+            return [];
+        }
+    }, [deal.sellerSignals]);
     const isHot = (deal.motivationScore ?? 0) >= 80;
     const isViable = (deal.viabilityScore ?? 0) >= 70;
+    const workersCount = activeCollaborators.length;
+    const workersLabel = useMemo(
+        () => (workersCount > 0
+            ? activeCollaborators.slice(0, 2).map((collaborator) => collaborator.username).join(", ")
+            : ""),
+        [activeCollaborators, workersCount],
+    );
+    const status = useMemo(
+        () => STATUS_OPTIONS.find((s) => s.id === deal.status) || STATUS_OPTIONS[0],
+        [deal.status],
+    );
 
-    const copyOutreach = async (e: React.MouseEvent) => {
+    const copyOutreach = useCallback(async (e: React.MouseEvent) => {
         e.stopPropagation();
         setIsGenerating(true);
         try {
@@ -69,19 +108,19 @@ export default function DealCard({ deal, onClick, onDelete, selected = false, on
 
             await navigator.clipboard.writeText(message);
             toast.success("Outreach copied to clipboard!");
-        } catch (err) {
+        } catch {
             toast.error("Failed to copy");
         } finally {
             setIsGenerating(false);
         }
-    };
+    }, [deal.industry, deal.name, deal.redditAuthor]);
 
-    const handleDelete = (e: React.MouseEvent) => {
+    const handleDelete = useCallback((e: React.MouseEvent) => {
         e.stopPropagation();
         onDelete(deal.id);
-    };
+    }, [deal.id, onDelete]);
 
-    const handleCardClick = (e: React.MouseEvent) => {
+    const handleCardClick = useCallback(() => {
         // If clicking a button or link inside, don't trigger selection/modal
         // (Handled by stopPropagation in those elements, but standard div click needs logic)
 
@@ -90,12 +129,12 @@ export default function DealCard({ deal, onClick, onDelete, selected = false, on
         } else {
             onClick();
         }
-    };
+    }, [onClick, onSelect, selectionMode]);
 
-    const handleCheckboxClick = (e: React.MouseEvent) => {
+    const handleCheckboxClick = useCallback((e: React.MouseEvent) => {
         e.stopPropagation();
         if (onSelect) onSelect();
-    };
+    }, [onSelect]);
 
     return (
         <div
@@ -149,14 +188,9 @@ export default function DealCard({ deal, onClick, onDelete, selected = false, on
                             </span>
                         )}
                         {/* Pipeline Status Badge */}
-                        {(() => {
-                            const status = STATUS_OPTIONS.find(s => s.id === deal.status) || STATUS_OPTIONS[0];
-                            return (
-                                <span className={`px-2 py-0.5 rounded text-[10px] uppercase tracking-wider font-semibold border transition-colors bg-${status?.color}-500/10 text-${status?.color}-500 border-${status?.color}-500/20`}>
-                                    {status?.label}
-                                </span>
-                            );
-                        })()}
+                        <span className={`px-2 py-0.5 rounded text-[10px] uppercase tracking-wider font-semibold border transition-colors bg-${status?.color}-500/10 text-${status?.color}-500 border-${status?.color}-500/20`}>
+                            {status?.label}
+                        </span>
 
                         <span className="text-[10px] text-[var(--text-dim)] flex items-center gap-1">
                             {formatTimeAgo(deal.createdAt.toString())}
@@ -164,6 +198,19 @@ export default function DealCard({ deal, onClick, onDelete, selected = false, on
                     </div>
 
                     <div className="flex items-center gap-1">
+                        {workersCount > 0 && (
+                            <div className="max-w-[180px] px-2 py-0.5 rounded text-[10px] bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                                <span className="relative flex h-2 w-2">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+                                </span>
+                                <Users className="w-3 h-3 shrink-0" />
+                                <span className="truncate">
+                                    {workersLabel}
+                                    {workersCount > 2 ? ` +${workersCount - 2}` : ""} working
+                                </span>
+                            </div>
+                        )}
                         {deal.notes && deal.notes.length > 0 && (
                             <span className="relative flex h-2 w-2 mr-2">
                                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400/50 opacity-75"></span>
@@ -249,6 +296,7 @@ export default function DealCard({ deal, onClick, onDelete, selected = false, on
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                     <button
                         onClick={copyOutreach}
+                        disabled={isGenerating}
                         className="p-1.5 rounded hover:bg-[var(--background)] text-[var(--text-muted)] hover:text-cyan-400 transition-colors"
                         title="Copy Outreach"
                     >

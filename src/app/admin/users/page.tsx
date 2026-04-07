@@ -17,9 +17,14 @@ interface User {
     createdAt: string;
 }
 
+type SessionUser = {
+    role?: string;
+};
+
 export default function UsersPage() {
     const router = useRouter();
     const { data: session, status } = useSession();
+    const userRole = (session?.user as SessionUser | undefined)?.role;
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -42,16 +47,16 @@ export default function UsersPage() {
     useEffect(() => {
         if (status === "unauthenticated") {
             router.push("/login");
-        } else if (status === "authenticated" && (session?.user as any)?.role !== "super_admin") {
+        } else if (status === "authenticated" && userRole !== "super_admin") {
             router.push("/");
         }
-    }, [status, session, router]);
+    }, [status, userRole, router]);
 
     useEffect(() => {
-        if ((session?.user as any)?.role === "super_admin") {
+        if (userRole === "super_admin") {
             fetchUsers();
         }
-    }, [session]);
+    }, [userRole]);
 
     const fetchUsers = async () => {
         try {
@@ -182,7 +187,7 @@ export default function UsersPage() {
         );
     }
 
-    if ((session?.user as any)?.role !== "super_admin") {
+    if (userRole !== "super_admin") {
         return null;
     }
 
@@ -221,7 +226,9 @@ export default function UsersPage() {
                                         <span
                                             className={`px-2 py-1 rounded text-xs font-semibold ${user.role === "super_admin"
                                                     ? "bg-purple-500/20 text-purple-400 border border-purple-500/30"
-                                                    : "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30"
+                                                    : user.role === "intern"
+                                                        ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                                                        : "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30"
                                                 }`}
                                         >
                                             {user.role}
@@ -314,6 +321,7 @@ export default function UsersPage() {
                                         className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all appearance-none"
                                     >
                                         <option value="member">Member</option>
+                                        <option value="intern">Intern</option>
                                         <option value="admin">Admin</option>
                                         <option value="super_admin">Super Admin</option>
                                     </select>
@@ -381,6 +389,7 @@ export default function UsersPage() {
                                         className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all appearance-none"
                                     >
                                         <option value="member">Member</option>
+                                        <option value="intern">Intern</option>
                                         <option value="admin">Admin</option>
                                         <option value="super_admin">Super Admin</option>
                                     </select>

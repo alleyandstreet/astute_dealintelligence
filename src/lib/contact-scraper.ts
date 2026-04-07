@@ -181,6 +181,7 @@ export async function enrichDeal(dealId: string, url: string) {
                 data: {
                     content: enrichmentText,
                     dealId: dealId,
+                    authorName: "Astute Enrichment Bot",
                 }
             });
             console.log(`✅ Enriched deal ${dealId}.`);

@@ -1,10 +1,21 @@
 import { db } from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireAuth } from "@/lib/auth";
 import { logActivity } from "@/lib/activity-logger";
+import { publishDealsChanged } from "@/lib/deal-collaboration";
+import { Prisma } from "@prisma/client";
+
+type SessionUser = {
+    id?: string;
+};
 
 export async function GET(request: NextRequest) {
+    const { response } = await requireAuth({
+        feature: "deal_sourcing",
+        rateLimitKey: "deal_sourcing_requests",
+    });
+    if (response) return response;
+
     try {
         const { searchParams } = new URL(request.url);
         const id = searchParams.get("id");
@@ -13,8 +24,15 @@ export async function GET(request: NextRequest) {
             const deal = await db.deal.findUnique({
                 where: { id },
                 include: {
+                    owner: {
+                        select: { id: true, username: true, email: true },
+                    },
                     tags: { include: { tag: true } },
                     notes: true,
+                    crmTasks: {
+                        orderBy: { createdAt: "desc" },
+                        take: 20,
+                    },
                 },
             });
 
@@ -28,8 +46,15 @@ export async function GET(request: NextRequest) {
         const deals = await db.deal.findMany({
             orderBy: { createdAt: "desc" },
             include: {
+                owner: {
+                    select: { id: true, username: true, email: true },
+                },
                 tags: { include: { tag: true } },
                 notes: true,
+                crmTasks: {
+                    orderBy: { createdAt: "desc" },
+                    take: 10,
+                },
             },
         });
         return NextResponse.json(deals);
@@ -40,8 +65,15 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+    const { session, response } = await requireAuth({
+        feature: "deal_sourcing",
+        rateLimitKey: "deal_sourcing_requests",
+    });
+    if (response) return response;
+
     try {
         const body = await request.json();
+        const sessionUser = session?.user as SessionUser | undefined;
 
         const deal = await db.deal.create({
             data: {
@@ -75,51 +107,77 @@ export async function POST(request: NextRequest) {
                 contactReddit: body.contactReddit || null,
                 contactEmail: body.contactEmail || null,
                 contactWebsite: body.contactWebsite || null,
+                contactTwitter: body.contactTwitter || null,
+                contactLinkedIn: body.contactLinkedIn || null,
+                contactDiscord: body.contactDiscord || null,
+                ownerId: body.ownerId || null,
+                priority: body.priority || "medium",
+                nextAction: body.nextAction || null,
+                nextActionAt: body.nextActionAt ? new Date(body.nextActionAt) : null,
+                lastContactedAt: body.lastContactedAt ? new Date(body.lastContactedAt) : null,
             },
         });
 
-        const session = await getServerSession(authOptions);
-        if (session?.user) {
+        if (sessionUser?.id) {
             await logActivity({
-                userId: (session.user as any).id,
+                userId: sessionUser.id,
                 action: "deal_created",
                 details: `Created deal: ${deal.name}`,
                 ipAddress: request.headers.get("x-forwarded-for") || undefined,
             });
         }
 
+        publishDealsChanged("deal_created");
         return NextResponse.json(deal, { status: 201 });
     } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+            return NextResponse.json({ error: "Deal already exists in pipeline" }, { status: 409 });
+        }
         console.error("Error creating deal:", error);
         return NextResponse.json({ error: "Failed to create deal" }, { status: 500 });
     }
 }
 
 export async function PATCH(request: NextRequest) {
+    const { session, response } = await requireAuth({
+        feature: "deal_sourcing",
+        rateLimitKey: "deal_sourcing_requests",
+    });
+    if (response) return response;
+
     try {
         const body = await request.json();
+        const sessionUser = session?.user as SessionUser | undefined;
         const { id, ...data } = body;
 
         if (!id) {
             return NextResponse.json({ error: "Deal ID required" }, { status: 400 });
         }
 
+        const normalizedData = { ...data } as Record<string, unknown>;
+        if ("nextActionAt" in normalizedData) {
+            normalizedData.nextActionAt = normalizedData.nextActionAt ? new Date(String(normalizedData.nextActionAt)) : null;
+        }
+        if ("lastContactedAt" in normalizedData) {
+            normalizedData.lastContactedAt = normalizedData.lastContactedAt ? new Date(String(normalizedData.lastContactedAt)) : null;
+        }
+
         const deal = await db.deal.update({
             where: { id },
-            data,
+            data: normalizedData as Prisma.DealUpdateInput,
         });
 
-        const session = await getServerSession(authOptions);
-        if (session?.user) {
-            const updates = Object.keys(data).join(", ");
+        if (sessionUser?.id) {
+            const updates = Object.keys(normalizedData).join(", ");
             await logActivity({
-                userId: (session.user as any).id,
+                userId: sessionUser.id,
                 action: "deal_updated",
                 details: `Updated deal ${deal.name} (ID: ${id}). Fields: ${updates}`,
                 ipAddress: request.headers.get("x-forwarded-for") || undefined,
             });
         }
 
+        publishDealsChanged("deal_updated");
         return NextResponse.json(deal);
     } catch (error) {
         console.error("Error updating deal:", error);
@@ -128,6 +186,12 @@ export async function PATCH(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+    const { session, response } = await requireAuth({
+        feature: "deal_sourcing",
+        rateLimitKey: "deal_sourcing_requests",
+    });
+    if (response) return response;
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
     const action = searchParams.get("action");
@@ -143,7 +207,7 @@ export async function DELETE(request: NextRequest) {
             if (body.ids && Array.isArray(body.ids)) {
                 bulkIds = body.ids;
             }
-        } catch (e) {
+        } catch {
             // Ignore body read errors (e.g. GET/DELETE with no body)
         }
 
@@ -152,6 +216,7 @@ export async function DELETE(request: NextRequest) {
             await db.deal.deleteMany({
                 where: { id: { in: bulkIds } },
             });
+            publishDealsChanged("deals_bulk_deleted");
             return NextResponse.json({ success: true, count: bulkIds.length });
         }
 
@@ -162,19 +227,19 @@ export async function DELETE(request: NextRequest) {
                 db.outreach.deleteMany({}),
                 db.dealTag.deleteMany({}),
                 db.deal.deleteMany({}),
-                db.deal.deleteMany({}),
             ]);
 
-            const session = await getServerSession(authOptions);
-            if (session?.user) {
+            const sessionUser = session?.user as SessionUser | undefined;
+            if (sessionUser?.id) {
                 await logActivity({
-                    userId: (session.user as any).id,
+                    userId: sessionUser.id,
                     action: "deal_deleted",
                     details: "PERFORMED TOTAL SYSTEM COMPLETE RESET",
                     ipAddress: request.headers.get("x-forwarded-for") || undefined,
                 });
             }
             console.log("TOTAL RESET successful");
+            publishDealsChanged("deals_reset");
             return NextResponse.json({ success: true, message: "All data reset" });
         }
 
@@ -187,23 +252,24 @@ export async function DELETE(request: NextRequest) {
                 where: { id },
             });
 
-            const session = await getServerSession(authOptions);
-            if (session?.user) {
+            const sessionUser = session?.user as SessionUser | undefined;
+            if (sessionUser?.id) {
                 await logActivity({
-                    userId: (session.user as any).id,
+                    userId: sessionUser.id,
                     action: "deal_deleted",
                     details: `Deleted deal ID: ${id}`,
                     ipAddress: request.headers.get("x-forwarded-for") || undefined,
                 });
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             // If record to delete is not found, we consider it a success (idempotent)
-            if (error.code === "P2025") {
+            if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
                 return NextResponse.json({ success: true, message: "Deal already deleted" });
             }
             throw error;
         }
 
+        publishDealsChanged("deal_deleted");
         return NextResponse.json({ success: true });
     } catch (error) {
         console.error("Error deleting deal:", error);

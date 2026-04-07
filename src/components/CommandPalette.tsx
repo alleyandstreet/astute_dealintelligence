@@ -7,13 +7,12 @@ import {
     Search,
     LayoutDashboard,
     Settings,
-    User,
     Zap,
-    LogOut,
     Moon,
-    Sun,
     Laptop,
-    PenTool
+    PenTool,
+    Users,
+    CalendarClock
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -105,6 +104,14 @@ export function CommandPalette() {
                                         <CommandItem onSelect={() => runCommand(() => router.push("/marketing"))}>
                                             <PenTool className="w-4 h-4 mr-2" />
                                             Content Engine
+                                        </CommandItem>
+                                        <CommandItem onSelect={() => runCommand(() => router.push("/crm"))}>
+                                            <Users className="w-4 h-4 mr-2" />
+                                            Team CRM
+                                        </CommandItem>
+                                        <CommandItem onSelect={() => runCommand(() => router.push("/crm/attendance"))}>
+                                            <CalendarClock className="w-4 h-4 mr-2" />
+                                            Intern Hours
                                         </CommandItem>
                                         <CommandItem onSelect={() => runCommand(() => router.push("/settings"))}>
                                             <Settings className="w-4 h-4 mr-2" />

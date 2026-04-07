@@ -35,13 +35,30 @@ export interface Deal {
     contactTwitter?: string | null;
     contactLinkedIn?: string | null;
     contactDiscord?: string | null;
+    ownerId?: string | null;
+    priority?: string;
+    nextAction?: string | null;
+    nextActionAt?: Date | string | null;
+    lastContactedAt?: Date | string | null;
+    owner?: {
+        id: string;
+        username: string;
+        email?: string | null;
+    } | null;
     notes?: Note[];
+    crmTasks?: CrmTask[];
 }
 
 export interface Note {
     id: string;
     content: string;
     createdAt: Date | string;
+    authorName?: string | null;
+    userId?: string | null;
+    user?: {
+        id: string;
+        username: string;
+    } | null;
 }
 
 export interface User {
@@ -67,4 +84,36 @@ export interface Business {
         username: string;
         email?: string | null;
     };
+}
+
+export interface CrmTask {
+    id: string;
+    title: string;
+    description?: string | null;
+    status: string;
+    priority: string;
+    dueDate?: Date | string | null;
+    completedAt?: Date | string | null;
+    notes?: string | null;
+    dealId?: string | null;
+    assignedToId?: string | null;
+    createdById?: string | null;
+    createdAt: Date | string;
+    updatedAt: Date | string;
+    deal?: {
+        id: string;
+        name: string;
+        status: string;
+        priority?: string | null;
+    } | null;
+    assignedTo?: {
+        id: string;
+        username: string;
+        email?: string | null;
+    } | null;
+    createdBy?: {
+        id: string;
+        username: string;
+        email?: string | null;
+    } | null;
 }

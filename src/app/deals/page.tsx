@@ -1,13 +1,21 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Search, Filter, Loader2, ExternalLink, TrendingUp, AlertTriangle, RotateCcw, Undo2, Redo2, Trash2 } from "lucide-react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { Search, Filter, Loader2, Undo2, Redo2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
 import DealModal from "@/components/DealModal";
 import DealCard from "@/components/DealCard";
 
 import { Deal } from "@/types";
+
+type DealActiveCollaborator = {
+    userId: string;
+    username: string;
+    email?: string | null;
+    role?: string | null;
+    lastSeenAt: string;
+};
 
 
 
@@ -25,12 +33,10 @@ export default function DealsPage() {
     const [isResetting, setIsResetting] = useState(false);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+    const [presenceByDeal, setPresenceByDeal] = useState<Record<string, DealActiveCollaborator[]>>({});
 
-    useEffect(() => {
-        fetchDeals();
-    }, []);
-
-    const fetchDeals = async () => {
+    const fetchDeals = useCallback(async (silent = false) => {
+        if (!silent) setLoading(true);
         try {
             const res = await fetch("/api/deals");
             if (res.ok) {
@@ -40,21 +46,110 @@ export default function DealsPage() {
         } catch (error) {
             console.error("Failed to fetch deals:", error);
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
-    };
+    }, []);
 
-    const openDeal = (deal: Deal) => {
+    const fetchPresence = useCallback(async (silent = false) => {
+        try {
+            const response = await fetch("/api/deals/presence");
+            if (!response.ok) return;
+            const payload = await response.json();
+            setPresenceByDeal((payload?.presenceByDeal || {}) as Record<string, DealActiveCollaborator[]>);
+        } catch (error) {
+            if (!silent) {
+                console.error("Failed to fetch deal presence:", error);
+            }
+        }
+    }, []);
+
+    const clearPresence = useCallback(() => {
+        fetch("/api/deals/presence", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "clear" }),
+        }).catch(() => {
+            // Best effort cleanup.
+        });
+    }, []);
+
+    useEffect(() => {
+        fetchDeals();
+        fetchPresence();
+
+        const dealsInterval = setInterval(() => {
+            fetchDeals(true);
+        }, 15_000);
+        const presenceInterval = setInterval(() => {
+            fetchPresence(true);
+        }, 15_000);
+
+        const events = new EventSource("/api/deals/live");
+        events.onmessage = (event) => {
+            try {
+                const payload = JSON.parse(event.data) as { type?: string };
+                if (payload.type === "deals_changed") {
+                    fetchDeals(true);
+                }
+            } catch {
+                // Ignore malformed events and keep stream alive.
+            }
+        };
+        events.onerror = () => {
+            // Browser will auto-retry EventSource.
+        };
+
+        return () => {
+            clearInterval(dealsInterval);
+            clearInterval(presenceInterval);
+            events.close();
+            clearPresence();
+        };
+    }, [clearPresence, fetchDeals, fetchPresence]);
+
+    useEffect(() => {
+        if (!isModalOpen || !selectedDeal?.id) {
+            clearPresence();
+            return;
+        }
+
+        let stopped = false;
+        const heartbeat = async () => {
+            try {
+                const response = await fetch("/api/deals/presence", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ action: "heartbeat", dealId: selectedDeal.id }),
+                });
+                if (!response.ok) return;
+                const payload = await response.json();
+                if (!stopped && payload?.presenceByDeal) {
+                    setPresenceByDeal(payload.presenceByDeal as Record<string, DealActiveCollaborator[]>);
+                }
+            } catch {
+                // Network blip; next heartbeat will retry.
+            }
+        };
+
+        heartbeat();
+        const heartbeatInterval = setInterval(heartbeat, 12_000);
+
+        return () => {
+            stopped = true;
+            clearInterval(heartbeatInterval);
+            clearPresence();
+        };
+    }, [clearPresence, isModalOpen, selectedDeal?.id]);
+
+    const openDeal = useCallback((deal: Deal) => {
         setSelectedDeal(deal);
         setIsModalOpen(true);
-    };
+    }, []);
 
-    const handleStatusChange = (id: string, status: string) => {
+    const handleStatusChange = useCallback((id: string, status: string) => {
         setDeals((prev) => prev.map((d) => (d.id === id ? { ...d, status } : d)));
-        if (selectedDeal?.id === id) {
-            setSelectedDeal({ ...selectedDeal, status });
-        }
-    };
+        setSelectedDeal((prev) => (prev?.id === id ? { ...prev, status } : prev));
+    }, []);
 
     const handleDelete = async (id: string) => {
         const dealToDelete = deals.find(d => d.id === id);
@@ -74,7 +169,7 @@ export default function DealsPage() {
                 }
 
                 toast.success("Deal deleted");
-            } catch (error) {
+            } catch {
                 toast.error("Failed to delete deal");
                 // Revert
                 setDeals(prev => [...prev, dealToDelete]);
@@ -100,7 +195,7 @@ export default function DealsPage() {
                 setRedoStack(prev => [...prev, newDeal]);
                 toast.success("Restored: " + dealToRestore.name);
             }
-        } catch (error) {
+        } catch {
             toast.error("Failed to restore deal");
         }
     };
@@ -120,7 +215,7 @@ export default function DealsPage() {
                 setUndoStack(prev => [...prev, dealToDelete]);
                 toast.success("Re-deleted: " + dealToDelete.name);
             }
-        } catch (error) {
+        } catch {
             toast.error("Failed to redo delete");
         }
     };
@@ -146,7 +241,7 @@ export default function DealsPage() {
                         } else {
                             toast.error("Failed to reset");
                         }
-                    } catch (error) {
+                    } catch {
                         toast.error("Failed to reset deals");
                     } finally {
                         setIsResetting(false);
@@ -161,15 +256,17 @@ export default function DealsPage() {
         });
     };
 
-    const toggleSelect = (id: string) => {
-        const next = new Set(selectedIds);
-        if (next.has(id)) {
-            next.delete(id);
-        } else {
-            next.add(id);
-        }
-        setSelectedIds(next);
-    };
+    const toggleSelect = useCallback((id: string) => {
+        setSelectedIds((prev) => {
+            const next = new Set(prev);
+            if (next.has(id)) {
+                next.delete(id);
+            } else {
+                next.add(id);
+            }
+            return next;
+        });
+    }, []);
 
     const handleBulkDelete = async () => {
         if (selectedIds.size === 0) return;
@@ -184,7 +281,6 @@ export default function DealsPage() {
                         const ids = Array.from(selectedIds);
 
                         // Optimistic update
-                        const previousDeals = [...deals];
                         setDeals(prev => prev.filter(d => !selectedIds.has(d.id)));
                         setSelectedIds(new Set()); // Clear selection immediately
 
@@ -201,9 +297,9 @@ export default function DealsPage() {
                         } else {
                             throw new Error("Failed to delete");
                         }
-                    } catch (error) {
+                    } catch {
                         toast.error("Failed to delete deals");
-                        // Revert could be implemented here by fetching again or restoring previousDeals
+                        // Revert by fetching canonical state from server.
                         fetchDeals(); // Safest fallback
                     } finally {
                         setIsBulkDeleting(false);
@@ -214,10 +310,15 @@ export default function DealsPage() {
         });
     };
 
-    const industries = [...new Set(deals.map((d) => d.industry).filter(Boolean))];
+    const normalizedSearch = useMemo(() => searchQuery.trim().toLowerCase(), [searchQuery]);
 
-    const filteredDeals = deals.filter((deal) => {
-        if (searchQuery && !deal.name.toLowerCase().includes(searchQuery.toLowerCase())) {
+    const industries = useMemo(
+        () => [...new Set(deals.map((d) => d.industry).filter(Boolean))],
+        [deals],
+    );
+
+    const filteredDeals = useMemo(() => deals.filter((deal) => {
+        if (normalizedSearch && !deal.name.toLowerCase().includes(normalizedSearch)) {
             return false;
         }
         if (industryFilter !== "all" && deal.industry !== industryFilter) {
@@ -230,7 +331,17 @@ export default function DealsPage() {
             return false;
         }
         return true;
-    });
+    }), [deals, industryFilter, minScore, normalizedSearch, sourceFilter]);
+
+    const activeDealsCount = useMemo(() => Object.keys(presenceByDeal).length, [presenceByDeal]);
+    const activeCollaboratorsCount = useMemo(
+        () => Object.values(presenceByDeal).reduce((sum, collaborators) => sum + collaborators.length, 0),
+        [presenceByDeal],
+    );
+    const selectedDealIndex = useMemo(
+        () => (selectedDeal ? filteredDeals.findIndex((d) => d.id === selectedDeal.id) : -1),
+        [filteredDeals, selectedDeal],
+    );
 
     if (loading) {
         return (
@@ -241,18 +352,14 @@ export default function DealsPage() {
     }
 
     const handleNextDeal = () => {
-        if (!selectedDeal) return;
-        const currentIndex = filteredDeals.findIndex(d => d.id === selectedDeal.id);
-        if (currentIndex !== -1 && currentIndex < filteredDeals.length - 1) {
-            setSelectedDeal(filteredDeals[currentIndex + 1]);
+        if (selectedDealIndex !== -1 && selectedDealIndex < filteredDeals.length - 1) {
+            setSelectedDeal(filteredDeals[selectedDealIndex + 1]);
         }
     };
 
     const handlePrevDeal = () => {
-        if (!selectedDeal) return;
-        const currentIndex = filteredDeals.findIndex(d => d.id === selectedDeal.id);
-        if (currentIndex > 0) {
-            setSelectedDeal(filteredDeals[currentIndex - 1]);
+        if (selectedDealIndex > 0) {
+            setSelectedDeal(filteredDeals[selectedDealIndex - 1]);
         }
     };
 
@@ -266,6 +373,9 @@ export default function DealsPage() {
                     </h1>
                     <p className="text-sm text-[var(--text-muted)]">
                         Showing <span className="text-cyan-400 font-semibold">{filteredDeals.length}</span> of <span className="text-white font-semibold">{deals.length}</span> discovered opportunities
+                    </p>
+                    <p className="text-xs text-[var(--text-dim)] mt-1">
+                        Team live: <span className="text-emerald-300 font-semibold">{activeCollaboratorsCount}</span> member(s) actively reviewing <span className="text-emerald-300 font-semibold">{activeDealsCount}</span> deal(s)
                     </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3 slide-in-right">
@@ -394,6 +504,7 @@ export default function DealsPage() {
                             selected={selectedIds.has(deal.id)}
                             onSelect={() => toggleSelect(deal.id)}
                             selectionMode={selectedIds.size > 0}
+                            activeCollaborators={presenceByDeal[deal.id] || []}
                         />
                     ))}
                 </div>
@@ -403,7 +514,10 @@ export default function DealsPage() {
             <DealModal
                 deal={selectedDeal}
                 isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
+                onClose={() => {
+                    setIsModalOpen(false);
+                    setSelectedDeal(null);
+                }}
                 onStatusChange={handleStatusChange}
                 onDelete={handleDelete}
                 onDealUpdated={(updatedDeal) => {
@@ -412,8 +526,8 @@ export default function DealsPage() {
                         setSelectedDeal(updatedDeal);
                     }
                 }}
-                onNext={filteredDeals.findIndex(d => d.id === selectedDeal?.id) < filteredDeals.length - 1 ? handleNextDeal : undefined}
-                onPrev={filteredDeals.findIndex(d => d.id === selectedDeal?.id) > 0 ? handlePrevDeal : undefined}
+                onNext={selectedDealIndex >= 0 && selectedDealIndex < filteredDeals.length - 1 ? handleNextDeal : undefined}
+                onPrev={selectedDealIndex > 0 ? handlePrevDeal : undefined}
             />
         </div>
     );

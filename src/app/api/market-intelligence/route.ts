@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { analyzeMarketTrends } from "@/lib/gemini";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireAuth } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
-    try {
-        const session = await getServerSession(authOptions);
-        if (!session) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-        }
+    const { response } = await requireAuth({
+        feature: "market_intelligence",
+        rateLimitKey: "market_intelligence_requests",
+    });
+    if (response) return response;
 
+    try {
         const body = await req.json();
         const { content } = body;
 

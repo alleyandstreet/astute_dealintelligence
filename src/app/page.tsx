@@ -6,13 +6,13 @@ import {
   Search,
   BarChart3,
   Settings,
-  Lock,
-  Layers,
   Zap,
   Globe,
-  ArrowRight
+  ArrowRight,
+  Users
 } from "lucide-react";
 import { GlassCard } from "@/components/ui/GlassCard";
+import type { HubFeatureKey } from "@/lib/feature-access";
 
 const modules = [
   {
@@ -20,6 +20,7 @@ const modules = [
     description: "AI-Powered Opportunity Scanner",
     icon: Search,
     href: "/dashboard",
+    featureKey: "deal_sourcing" as HubFeatureKey,
     color: "emerald",
     status: "active",
     gradient: "from-emerald-400 to-sky-500"
@@ -29,6 +30,7 @@ const modules = [
     description: "Deep Market Trends & Analysis",
     icon: BarChart3,
     href: "/market-intelligence",
+    featureKey: "market_intelligence" as HubFeatureKey,
     color: "sky",
     status: "active",
     gradient: "from-sky-400 to-cyan-500"
@@ -38,9 +40,20 @@ const modules = [
     description: "From idea to caption to publishing, one stop",
     icon: Globe,
     href: "/marketing",
+    featureKey: "content_engine" as HubFeatureKey,
     color: "amber",
     status: "active",
     gradient: "from-amber-400 to-orange-500"
+  },
+  {
+    title: "Team CRM",
+    description: "Ownership, tasks, and follow-up command center",
+    icon: Users,
+    href: "/crm",
+    featureKey: "team_crm" as HubFeatureKey,
+    color: "teal",
+    status: "active",
+    gradient: "from-teal-400 to-cyan-500"
   },
 
   {
@@ -48,6 +61,7 @@ const modules = [
     description: "System Configuration",
     icon: Settings,
     href: "/admin",
+    featureKey: "admin_control" as HubFeatureKey,
     color: "slate",
     status: "restricted",
     gradient: "from-slate-500 to-slate-700"
@@ -56,11 +70,17 @@ const modules = [
 
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+
+type AccessProfile = {
+  features?: Record<HubFeatureKey, boolean>;
+};
+type SessionUser = { role?: string };
 
 export default function HubPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const [featureAccess, setFeatureAccess] = useState<Record<HubFeatureKey, boolean> | null | undefined>(undefined);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -68,9 +88,34 @@ export default function HubPage() {
     }
   }, [status, router]);
 
-  const isAdmin = (session?.user as any)?.role === "super_admin";
+  useEffect(() => {
+    if (status !== "authenticated") return;
 
-  if (status === "loading") {
+    let active = true;
+
+    fetch("/api/access/me")
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Failed to load access profile");
+        return response.json();
+      })
+      .then((payload: AccessProfile) => {
+        if (!active) return;
+        setFeatureAccess(payload.features || null);
+      })
+      .catch((error) => {
+        console.error(error);
+        if (!active) return;
+        setFeatureAccess(null);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [status]);
+
+  const isAdmin = (session?.user as SessionUser | undefined)?.role === "super_admin";
+
+  if (status === "loading" || (status === "authenticated" && featureAccess === undefined)) {
     return (
       <div className="min-h-screen bg-[#050505] flex items-center justify-center">
         <div className="w-10 h-10 border-4 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin" />
@@ -116,16 +161,23 @@ export default function HubPage() {
       </motion.div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-3xl z-10 px-6">
-        {modules.filter(m => m.title !== "Admin Control" || isAdmin).map((module, index) => {
+        {modules.map((module) => {
           const Icon = module.icon;
-          const isActive = module.status === "active";
-          const isRestricted = module.status === "restricted";
+          const canAccess = featureAccess
+            ? Boolean(featureAccess[module.featureKey])
+            : (module.featureKey === "admin_control" ? isAdmin : true);
+          const isLocked = !canAccess;
 
           return (
             <Link
               key={module.title}
-              href={module.status === "active" || module.status === "restricted" ? module.href : "#"}
-              className={`block ${!isActive && !isRestricted ? 'cursor-not-allowed opacity-60' : ''} group perspective-1000`}
+              href={canAccess ? module.href : "#"}
+              className={`block ${isLocked ? 'cursor-not-allowed opacity-60' : ''} group perspective-1000`}
+              onClick={(event) => {
+                if (!canAccess) {
+                  event.preventDefault();
+                }
+              }}
             >
               <GlassCard
                 className="h-full p-6 relative overflow-hidden border-white/5 hover:border-white/20 transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.5)] bg-black/40 backdrop-blur-md"
@@ -153,9 +205,9 @@ export default function HubPage() {
 
                   {/* Status Indicator */}
                   <div className="flex-shrink-0">
-                    {module.status === "coming_soon" ? (
+                    {isLocked ? (
                       <span className="text-[10px] font-bold uppercase tracking-wider bg-zinc-800 text-zinc-400 px-2 py-1 rounded-md border border-zinc-700">
-                        Coming Soon
+                        Restricted
                       </span>
                     ) : (
                       <ArrowRight className={`w-4 h-4 text-zinc-600 group-hover:text-${module.color}-400 group-hover:translate-x-1 transition-all`} />

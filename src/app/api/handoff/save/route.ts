@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { toUniqueStringArray } from "@/lib/json-arrays";
 
 export async function POST(req: NextRequest) {
     try {
@@ -17,12 +18,13 @@ export async function POST(req: NextRequest) {
 
         const body = await req.json();
         const { caption, hashtags, mediaUrls, platform } = body;
+        const normalizedHashtags = toUniqueStringArray(hashtags);
 
         // Create a temporary handoff post
         const post = await db.scheduledPost.create({
             data: {
                 caption: caption || "",
-                hashtags: Array.isArray(hashtags) ? hashtags : [],
+                hashtags: normalizedHashtags,
                 platform: platform || "instagram",
                 scheduledFor: new Date(), // Immediate for handoff
                 userId: user.id,

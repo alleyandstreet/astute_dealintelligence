@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { model } from "@/lib/gemini";
+import { getGeminiModel } from "@/lib/gemini";
+import { requireAuth } from "@/lib/auth";
 
 const CUSTOM_MODELING_PROMPT = `You are a Principal Futurist and Strategic Analyst.
 Perform a bespoke trend modeling analysis for the following topic:
@@ -35,6 +36,12 @@ Return a JSON object with this exact structure:
 }`;
 
 export async function POST(req: Request) {
+  const { response } = await requireAuth({
+    feature: "market_intelligence",
+    rateLimitKey: "market_intelligence_requests",
+  });
+  if (response) return response;
+
   let topic = "";
   try {
     const body = await req.json();
@@ -45,7 +52,7 @@ export async function POST(req: Request) {
     }
 
     const prompt = CUSTOM_MODELING_PROMPT.replace("{topic}", topic);
-    const result = await model.generateContent(prompt);
+        const result = await getGeminiModel().generateContent(prompt);
     const text = result.response.text();
     const jsonMatch = text.match(/\{[\s\S]*\}/);
 

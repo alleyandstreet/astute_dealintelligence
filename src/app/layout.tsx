@@ -17,7 +17,6 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  console.log("ALIVE: RootLayout rendering at " + new Date().toISOString());
   return (
     <html lang="en">
       <body className="antialiased">

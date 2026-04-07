@@ -4,6 +4,8 @@ import { db } from "./db";
 import { verifyPassword } from "./password";
 import { logActivity } from "./activity-logger";
 import { NextResponse } from "next/server";
+import type { HubFeatureKey } from "@/lib/feature-access";
+import { canUserAccessFeature, enforceTeamRateLimit, type TeamRateLimitKey } from "@/lib/team-controls";
 
 export const authOptions: NextAuthOptions = {
     providers: [
@@ -72,17 +74,19 @@ export const authOptions: NextAuthOptions = {
     callbacks: {
         async jwt({ token, user }) {
             if (user) {
-                token.id = user.id;
-                token.role = (user as any).role;
-                token.email = user.email;
+                const typedUser = user as { id?: string; role?: string; email?: string | null };
+                token.id = typedUser.id;
+                token.role = typedUser.role;
+                token.email = typedUser.email;
             }
             return token;
         },
         async session({ session, token }) {
             if (session.user) {
-                (session.user as any).id = token.id;
-                (session.user as any).role = token.role;
-                (session.user as any).email = token.email;
+                const typedSessionUser = session.user as { id?: string; role?: string; email?: string | null };
+                typedSessionUser.id = token.id as string | undefined;
+                typedSessionUser.role = token.role as string | undefined;
+                typedSessionUser.email = token.email as string | undefined;
             }
             return session;
         }
@@ -91,14 +95,59 @@ export const authOptions: NextAuthOptions = {
 
 /**
  * Helper to require authentication in API routes.
- * Returns the session if authenticated, or a 401 response if not.
+ * Optionally enforces feature-level access and configurable rate limits.
  */
-export async function requireAuth() {
+export async function requireAuth(options?: {
+    feature?: HubFeatureKey;
+    rateLimitKey?: TeamRateLimitKey;
+}) {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user) {
         return { session: null, response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
     }
-    
+
+    const sessionUser = session.user as { id?: string; role?: string };
+    if (!sessionUser.id) {
+        return { session: null, response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
+    }
+
+    if (options?.feature) {
+        const allowed = await canUserAccessFeature(sessionUser.id, sessionUser.role, options.feature);
+        if (!allowed) {
+            return {
+                session: null,
+                response: NextResponse.json(
+                    { error: "Forbidden: You do not have access to this feature" },
+                    { status: 403 },
+                ),
+            };
+        }
+    }
+
+    if (options?.rateLimitKey) {
+        const result = await enforceTeamRateLimit({
+            key: options.rateLimitKey,
+            userId: sessionUser.id,
+        });
+
+        if (!result.allowed) {
+            return {
+                session: null,
+                response: NextResponse.json(
+                    {
+                        error: `Rate limit exceeded for this feature. Please retry in ${result.retryAfterSeconds}s.`,
+                    },
+                    {
+                        status: 429,
+                        headers: {
+                            "Retry-After": String(result.retryAfterSeconds),
+                        },
+                    },
+                ),
+            };
+        }
+    }
+
     return { session, response: null };
 }

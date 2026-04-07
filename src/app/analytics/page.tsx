@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { Loader2, TrendingUp, Briefcase, Target, BarChart3 } from "lucide-react";
 import {
@@ -14,8 +14,6 @@ import {
     PieChart,
     Pie,
     Cell,
-    LineChart,
-    Line,
     Legend,
 } from "recharts";
 
@@ -48,68 +46,74 @@ function AnalyticsContent() {
     };
 
     // Filter deals based on source if present
-    const filteredDeals = sourceParam
-        ? deals.filter(d => d.source?.toLowerCase() === sourceParam.toLowerCase() || (sourceParam === 'reddit' && !d.source))
-        : deals;
+    const filteredDeals = useMemo(() => (
+        sourceParam
+            ? deals.filter((d) => d.source?.toLowerCase() === sourceParam.toLowerCase() || (sourceParam === "reddit" && !d.source))
+            : deals
+    ), [deals, sourceParam]);
 
-    // Calculate analytics on filtered deals
-    const industryData = filteredDeals.reduce((acc: Record<string, number>, deal) => {
-        const industry = deal.industry || "Other";
-        acc[industry] = (acc[industry] || 0) + 1;
-        return acc;
-    }, {});
+    const industryChartData = useMemo(() => {
+        const industryData = filteredDeals.reduce((acc: Record<string, number>, deal) => {
+            const industry = deal.industry || "Other";
+            acc[industry] = (acc[industry] || 0) + 1;
+            return acc;
+        }, {});
 
-    const industryChartData = Object.entries(industryData).map(([name, value]) => ({
-        name,
-        value,
-    }));
+        return Object.entries(industryData).map(([name, value]) => ({
+            name,
+            value,
+        }));
+    }, [filteredDeals]);
 
-    const qualityData = [
+    const qualityData = useMemo(() => [
         { name: "High (70+)", value: filteredDeals.filter((d) => (d.viabilityScore ?? 0) >= 70).length },
         { name: "Medium (50-69)", value: filteredDeals.filter((d) => (d.viabilityScore ?? 0) >= 50 && (d.viabilityScore ?? 0) < 70).length },
         { name: "Low (<50)", value: filteredDeals.filter((d) => (d.viabilityScore ?? 0) < 50).length },
-    ];
+    ], [filteredDeals]);
 
-    const PLATFORMS = [
-        { id: "all", label: "All Platforms" },
-        { id: "reddit", label: "Reddit" },
-        { id: "producthunt", label: "Product Hunt" },
-        { id: "indiehustle", label: "IndieHustle" },
-    ];
-    const statusData = [
+    const statusData = useMemo(() => [
         { name: "New", value: filteredDeals.filter((d) => d.status === "new_leads").length },
         { name: "Qualified", value: filteredDeals.filter((d) => d.status === "qualified").length },
         { name: "Contacted", value: filteredDeals.filter((d) => d.status === "contacted").length },
         { name: "Discussion", value: filteredDeals.filter((d) => d.status === "in_discussion").length },
         { name: "DD", value: filteredDeals.filter((d) => d.status === "due_diligence").length },
-    ];
+    ], [filteredDeals]);
 
     // Subreddit/Topic performance
-    const subredditData = filteredDeals.reduce((acc: Record<string, { count: number; avgScore: number }>, deal) => {
-        const source = deal.sourceName || "Unknown";
-        if (!acc[source]) acc[source] = { count: 0, avgScore: 0 };
-        acc[source].count++;
-        acc[source].avgScore += deal.viabilityScore ?? 0;
-        return acc;
-    }, {});
+    const subredditChartData = useMemo(() => {
+        const subredditData = filteredDeals.reduce((acc: Record<string, { count: number; avgScore: number }>, deal) => {
+            const source = deal.sourceName || "Unknown";
+            if (!acc[source]) acc[source] = { count: 0, avgScore: 0 };
+            acc[source].count++;
+            acc[source].avgScore += deal.viabilityScore ?? 0;
+            return acc;
+        }, {});
 
-    const subredditChartData = Object.entries(subredditData)
-        .map(([name, data]) => ({
-            name,
-            deals: data.count,
-            avgScore: Math.round(data.avgScore / data.count) || 0,
-        }))
-        .sort((a, b) => b.deals - a.deals)
-        .slice(0, 5);
+        return Object.entries(subredditData)
+            .map(([name, data]) => ({
+                name,
+                deals: data.count,
+                avgScore: Math.round(data.avgScore / data.count) || 0,
+            }))
+            .sort((a, b) => b.deals - a.deals)
+            .slice(0, 5);
+    }, [filteredDeals]);
 
     // Stats
-    const avgViability = filteredDeals.length > 0
-        ? Math.round(filteredDeals.reduce((acc, d) => acc + (d.viabilityScore ?? 0), 0) / filteredDeals.length)
-        : 0;
-    const avgMotivation = filteredDeals.length > 0
-        ? Math.round(filteredDeals.reduce((acc, d) => acc + (d.motivationScore ?? 0), 0) / filteredDeals.length)
-        : 0;
-    const hotDeals = filteredDeals.filter((d) => (d.viabilityScore ?? 0) >= 70 && (d.motivationScore ?? 0) >= 60).length;
+    const avgViability = useMemo(() => (
+        filteredDeals.length > 0
+            ? Math.round(filteredDeals.reduce((acc, d) => acc + (d.viabilityScore ?? 0), 0) / filteredDeals.length)
+            : 0
+    ), [filteredDeals]);
+    const avgMotivation = useMemo(() => (
+        filteredDeals.length > 0
+            ? Math.round(filteredDeals.reduce((acc, d) => acc + (d.motivationScore ?? 0), 0) / filteredDeals.length)
+            : 0
+    ), [filteredDeals]);
+    const hotDeals = useMemo(
+        () => filteredDeals.filter((d) => (d.viabilityScore ?? 0) >= 70 && (d.motivationScore ?? 0) >= 60).length,
+        [filteredDeals],
+    );
 
     if (loading) {
         return (

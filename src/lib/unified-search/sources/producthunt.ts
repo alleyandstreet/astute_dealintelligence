@@ -1,14 +1,15 @@
 import type { RawScrapedItem, UnifiedPlatformContext } from "@/lib/unified-search/types";
+import { withTimeout } from "@/lib/unified-search/sources/http";
 
 async function parseFeed(url: string) {
     const Parser = (await import("rss-parser")).default;
     const parser = new Parser({
         headers: {
-            "User-Agent": "DealIntelUnified/1.0 (+https://localhost)",
+            "User-Agent": "DealIntelUnified/1.0 (+https://alleyandstreet.com)",
         },
     });
 
-    return parser.parseURL(url);
+    return withTimeout(parser.parseURL(url), { timeoutMs: 10000, label: "producthunt:feed" });
 }
 
 export async function fetchProductHuntSeed(context: UnifiedPlatformContext): Promise<RawScrapedItem[]> {
@@ -16,7 +17,9 @@ export async function fetchProductHuntSeed(context: UnifiedPlatformContext): Pro
     const maxItems = Math.max(1, context.input.maxItemsPerPlatform ?? 50);
 
     const topicFeed =
-        topic === "all" || topic === "home" ? "https://www.producthunt.com/feed" : `https://www.producthunt.com/topics/${topic}/feed.rss`;
+        topic === "all" || topic === "home"
+            ? "https://www.producthunt.com/feed"
+            : `https://www.producthunt.com/topics/${topic}/feed.rss`;
 
     let feed;
     try {

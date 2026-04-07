@@ -1,4 +1,4 @@
-import { model } from "../gemini";
+import { getGeminiModel } from "../gemini";
 
 export interface InvestmentMemo {
   executive_summary: string;
@@ -73,7 +73,7 @@ export const DeepAnalysisService = {
     while (attempt < MAX_RETRIES) {
       try {
         const prompt = MEMO_PROMPT.replace("{context}", dealContext);
-        const result = await model.generateContent(prompt);
+        const result = await getGeminiModel().generateContent(prompt);
         const response = await result.response;
         const text = response.text();
 

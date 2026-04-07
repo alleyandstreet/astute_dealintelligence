@@ -1,7 +1,14 @@
 import { NextResponse } from 'next/server';
 import { chatWithAnalyst } from '@/lib/gemini';
+import { requireAuth } from "@/lib/auth";
 
 export async function POST(request: Request) {
+    const { response } = await requireAuth({
+        feature: "market_intelligence",
+        rateLimitKey: "market_intelligence_requests",
+    });
+    if (response) return response;
+
     try {
         const { analysis, history, message } = await request.json();
 
