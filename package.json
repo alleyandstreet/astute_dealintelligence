@@ -7,6 +7,10 @@
         "build": "next build",
         "start": "next start",
         "lint": "eslint",
+        "db:push": "prisma db push",
+        "admin:ensure": "node scripts/ensure-admin.mjs",
+        "deploy:check": "node scripts/deploy-check.mjs",
+        "start:team": "node scripts/start-team.mjs",
         "clean": "rm -rf .next && rm -rf node_modules/.cache",
         "postinstall": "prisma generate"
     },
@@ -16,7 +20,6 @@
         "@dnd-kit/sortable": "^10.0.0",
         "@dnd-kit/utilities": "^3.2.2",
         "@google/generative-ai": "^0.24.1",
-        "@prisma/adapter-better-sqlite3": "^7.2.0",
         "@prisma/client": "^6.0.0",
         "@radix-ui/react-slot": "^1.2.4",
         "@react-three/drei": "^10.7.7",
@@ -25,7 +28,6 @@
         "@types/recharts": "^1.8.29",
         "@types/three": "^0.182.0",
         "bcrypt": "^6.0.0",
-        "better-sqlite3": "^12.6.0",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
         "cmdk": "^1.1.1",
@@ -49,7 +51,6 @@
         "three": "^0.182.0"
     },
     "devDependencies": {
-        "@types/better-sqlite3": "^7.6.13",
         "@types/node": "^20",
         "@types/react": "^19",
         "@types/react-dom": "^19",

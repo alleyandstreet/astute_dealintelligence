@@ -1,61 +1,121 @@
-# Deployment Guide - Astute v4.0
+# Astute Team Deployment Guide
 
-This document provides instructions on how to deploy Astute v4.0 to a production environment.
+This guide prepares Astute for shared team usage in production with PostgreSQL.
 
-## Prerequisites
-- **Node.js**: v18.x or higher
-- **PostgreSQL**: A running instance (e.g., Supabase, RDS)
-- **Environment Variables**: See `.env.example`
+## Deployment model
 
-## 1. Environment Setup
-Copy `.env.example` to `.env.production` (or your platform's environment settings) and fill in the required values.
+- App: Next.js (`npm run start`)
+- Database: PostgreSQL (managed provider or Docker service)
+- Auth: NextAuth credentials
+- Bootstrap: first super admin is auto-created from env vars
+
+## 1. Production environment
+
+Create `.env.production` from the template:
 
 ```bash
-cp .env.example .env.production
+cp .env.production.example .env.production
 ```
 
-## 2. Install Dependencies
+Set at least:
+
+- `NEXTAUTH_URL` (public HTTPS URL)
+- `NEXTAUTH_SECRET` (long random string)
+- `DATABASE_URL` (must start with `postgresql://` or `postgres://`)
+- `GEMINI_API_KEY` (for AI features)
+- `ADMIN_USERNAME`
+- `ADMIN_PASSWORD`
+- `ADMIN_EMAIL` (optional)
+
+## 2. Preflight validation
+
+Run:
+
 ```bash
-npm install
+npm run deploy:check
 ```
 
-## 3. Database Migration
-Ensure your database schema is up to date with Prisma.
+This verifies required env vars and confirms PostgreSQL URL format.
+
+## 3. Option A (recommended): Docker Compose with PostgreSQL
+
+Build and run:
 
 ```bash
-npx prisma generate
-npx prisma db push --force-reset
+docker compose up -d --build
 ```
-> [!WARNING]
-> `db push --force-reset` will delete all data in your database. Use `npx prisma migrate deploy` for production updates if you have existing data and migrations.
 
-## 4. Build for Production
+What this does:
+
+- starts a PostgreSQL service (`postgres:16-alpine`)
+- builds and starts the app container
+- runs DB sync (`prisma db push`) at startup
+- ensures super admin exists from env values
+
+Important:
+
+- update the placeholder Postgres password in [docker-compose.yml](./docker-compose.yml) before running in production
+- keep `DATABASE_URL` in `.env.production` aligned with your actual production database if you are not using the bundled Postgres service
+
+Health endpoint:
+
+- `GET /api/health`
+
+## 4. Option B (recommended for Vercel): Vercel + managed PostgreSQL
+
+1. Provision a PostgreSQL database (Neon, Supabase, RDS, Cloud SQL, etc.).
+2. In Vercel project settings, set environment variables from `.env.production.example`.
+3. Set `DATABASE_URL` to your managed Postgres URL.
+4. Deploy the app.
+5. On first boot, app startup runs `prisma db push` and admin bootstrap.
+
+## 5. Option C: Bare-metal VM deployment
+
+Requirements:
+
+- Node.js 20+
+- npm 10+
+- reachable PostgreSQL instance
+
+Steps:
+
 ```bash
+npm ci
 npm run build
+npm run start:team
 ```
 
-## 5. Start the Server
+`start:team` runs:
+
+1. deploy env check
+2. Prisma schema sync
+3. super-admin bootstrap
+4. production server start
+
+## 6. Team rollout checklist
+
+1. Verify login works with `ADMIN_USERNAME` / `ADMIN_PASSWORD`.
+2. Create all team users from Admin panel.
+3. Share only the app URL (not server credentials).
+4. Put the app behind HTTPS (Nginx/Cloudflare/Vercel/ALB).
+5. Set up regular PostgreSQL backups.
+
+## 7. Backups
+
+- Managed Postgres: enable automated snapshots/backups with your provider.
+- Self-hosted Docker Postgres: use `pg_dump` and archive dumps off-host.
+
+Example backup command for Docker Postgres:
+
 ```bash
-npm run start
+docker compose exec postgres pg_dump -U astute -d astute > astute-db-$(date +%F).sql
 ```
 
-## Deployment Platforms
-### Vercel
-1. Connect your GitHub repository to Vercel.
-2. Add all environment variables from `.env.example` to the Vercel project settings.
-3. Vercel will automatically detect Next.js and run the build command.
+## 8. Troubleshooting
 
-### Docker (Optional)
-If you prefer Docker, you can create a `Dockerfile` based on the official Next.js template.
-
-```dockerfile
-# Example Dockerfile snippet
-FROM node:18-alpine AS runner
-WORKDIR /app
-ENV NODE_ENV production
-COPY . .
-RUN npm install
-RUN npm run build
-EXPOSE 3000
-CMD ["npm", "start"]
-```
+- Error: `DATABASE_URL must be a PostgreSQL URL`
+  - Fix `.env.production` to use `postgresql://...` or `postgres://...`.
+- Error: `Can't reach database server`
+  - Check DB host/port/network access and credentials.
+- No admin exists
+  - Ensure `ADMIN_USERNAME` and `ADMIN_PASSWORD` are set, then restart app.

@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
         };
 
         const databaseInfo = {
-            provider: "SQLite",
+            provider: "PostgreSQL",
             userCount,
             businessCount,
             dealCount,

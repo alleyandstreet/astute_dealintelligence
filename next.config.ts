@@ -2,7 +2,8 @@ import type { NextConfig } from "next";
 import path from "path";
 
 const nextConfig: NextConfig = {
-    serverExternalPackages: ["@prisma/client", "better-sqlite3"],
+    output: "standalone",
+    serverExternalPackages: ["@prisma/client"],
     eslint: {
         ignoreDuringBuilds: true,
     },

@@ -1,0 +1,35 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: astute-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: astute
+      POSTGRES_USER: astute
+      POSTGRES_PASSWORD: change-this-password
+    volumes:
+      - astute_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U astute -d astute"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  astute:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: astute-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env.production
+    environment:
+      DATABASE_URL: postgresql://astute:change-this-password@postgres:5432/astute?schema=public
+
+volumes:
+  astute_postgres_data:

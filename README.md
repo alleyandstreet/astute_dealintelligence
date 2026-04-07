@@ -1,54 +1,46 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Astute v4.0
 
-## Getting Started
+Private equity deal intelligence and team CRM platform.
 
-First, run the development server:
+## Local development
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Required environment variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `DATABASE_URL` (PostgreSQL URL: must start with `postgresql://` or `postgres://`)
+- `NEXTAUTH_URL`
+- `NEXTAUTH_SECRET`
+- `GEMINI_API_KEY`
+- `ADMIN_USERNAME`
+- `ADMIN_PASSWORD`
 
-## Learn More
+Use `.env.example` for local defaults and `.env.production.example` for team deployment.
 
-To learn more about Next.js, take a look at the following resources:
+## Production scripts
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `npm run deploy:check` - validates deployment env
+- `npm run db:push` - syncs Prisma schema
+- `npm run admin:ensure` - creates or upgrades super admin from env
+- `npm run start:team` - full production start pipeline
 
 ## Deployment
 
-To deploy this application, follow these steps:
+Full runbook: [DEPLOYMENT.md](./DEPLOYMENT.md)
 
-1.  **Environment Variables**: Ensure the following variables are set in your production environment:
-    - `DATABASE_URL`: Path to your SQLite file (e.g., `file:/app/prisma/dev.db`).
-    - `NEXTAUTH_URL`: The base URL of your site.
-    - `NEXTAUTH_SECRET`: A secure secret for authentication.
-    - `ANTHROPIC_API_KEY`: API key for Claude AI deal analysis.
-    - `ADMIN_USERNAME`: Admin login username.
-    - `ADMIN_PASSWORD`: Admin login password.
+Quick Docker launch:
 
-2.  **Build**: Run `npm run build` to generate the production optimized bundle.
-
-3.  **Start**: Run `npm run start` to start the production server.
-
-## Prisma
-
-This project uses Prisma with SQLite. To initialize the database in a new environment, run:
 ```bash
-npx prisma generate
-npx prisma db push
+cp .env.production.example .env.production
+# Set a strong DB password in both .env.production and docker-compose.yml
+docker compose up -d --build
 ```
+
+Health check:
+
+- `GET /api/health`

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 const fs = require('fs');
 const path = require('path');
 
@@ -36,13 +37,14 @@ function checkEnv() {
                 }
             });
         }
-    } catch(e) {}
+    } catch {}
 
     const vars = [
         'DATABASE_URL',
         'NEXTAUTH_URL',
         'NEXTAUTH_SECRET',
-        'ANTHROPIC_API_KEY',
+        'GEMINI_API_KEY',
+        'OPENAI_API_KEY',
         'ADMIN_USERNAME',
         'ADMIN_PASSWORD'
     ];

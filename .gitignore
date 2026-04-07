@@ -36,6 +36,14 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# extra sensitive artifacts
+*.secret
+*.secrets
+.envrc
+.envrc.local
+vercel-*.env
+secrets/
+
 # databases
 *.db
 *.sqlite
