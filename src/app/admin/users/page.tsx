@@ -28,6 +28,7 @@ export default function UsersPage() {
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [isCreatingUser, setIsCreatingUser] = useState(false);
     const [newUser, setNewUser] = useState({
         username: "",
         password: "",
@@ -75,6 +76,9 @@ export default function UsersPage() {
 
     const handleCreateUser = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (isCreatingUser) return;
+
+        setIsCreatingUser(true);
         try {
             const res = await fetch("/api/admin/users", {
                 method: "POST",
@@ -88,12 +92,21 @@ export default function UsersPage() {
                 setNewUser({ username: "", password: "", email: "", role: "member" });
                 fetchUsers();
             } else {
-                const data = await res.json();
-                toast.error(data.error || "Failed to create user");
+                const text = await res.text();
+                let message = "Failed to create user";
+                try {
+                    const data = JSON.parse(text) as { error?: string };
+                    message = data.error || message;
+                } catch {
+                    message = text || message;
+                }
+                toast.error(message);
             }
         } catch (error) {
             console.error("Error creating user:", error);
             toast.error("Failed to create user");
+        } finally {
+            setIsCreatingUser(false);
         }
     };
 
@@ -336,9 +349,10 @@ export default function UsersPage() {
                                     </button>
                                     <button
                                         type="submit"
+                                        disabled={isCreatingUser}
                                         className="flex-1 px-4 py-2.5 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-all font-medium"
                                     >
-                                        Create User
+                                        {isCreatingUser ? "Creating..." : "Create User"}
                                     </button>
                                 </div>
                             </form>
