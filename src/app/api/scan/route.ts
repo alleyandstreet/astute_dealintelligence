@@ -3,6 +3,7 @@ import { requireAuth } from "@/lib/auth";
 import { logActivity } from "@/lib/activity-logger";
 import { runUnifiedSearch } from "@/lib/unified-search/orchestrator";
 import { jobManager } from "@/lib/unified-search/job-manager";
+import { resetPHCursors } from "@/lib/unified-search/sources/producthunt";
 import type { UnifiedPlatformId, UnifiedStreamEvent } from "@/lib/unified-search/types";
 
 const PLATFORM_MAP: Record<string, UnifiedPlatformId> = {
@@ -80,6 +81,8 @@ export async function POST(request: NextRequest) {
                 };
 
                 try {
+                    // Reset pagination cursors so this scan starts from page 1
+                    resetPHCursors();
                     let totalPersisted = 0;
 
                     for (let pass = 0; pass < repeatCount; pass++) {

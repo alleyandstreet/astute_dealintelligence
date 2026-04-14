@@ -3,6 +3,15 @@ import type { RawScrapedItem, UnifiedPlatformContext } from "@/lib/unified-searc
 let cachedToken: string | null = null;
 let tokenExpiresAt: number = 0;
 
+// Cursor cache: stores the last endCursor per topic so multi-pass scans
+// fetch the next page instead of re-fetching the same top posts.
+const cursorCache = new Map<string, string>();
+
+/** Clear all cached pagination cursors (e.g. on a fresh scan). */
+export function resetPHCursors() {
+    cursorCache.clear();
+}
+
 async function getAccessToken(): Promise<string> {
     if (cachedToken && Date.now() < tokenExpiresAt) {
         return cachedToken;
@@ -44,10 +53,17 @@ export async function fetchProductHuntSeed(context: UnifiedPlatformContext): Pro
 
     const accessToken = await getAccessToken();
 
-    // Query official API — request both website and the PH listing url
+    // Use cursor from previous pass (if any) to paginate forward
+    const cursorKey = `ph:${topic}`;
+    const afterCursor = cursorCache.get(cursorKey) || null;
+
     const query = `
-        query ($first: Int!) {
-            posts(first: $first) {
+        query ($first: Int!, $after: String) {
+            posts(first: $first, after: $after) {
+                pageInfo {
+                    endCursor
+                    hasNextPage
+                }
                 edges {
                     node {
                         id
@@ -90,7 +106,7 @@ export async function fetchProductHuntSeed(context: UnifiedPlatformContext): Pro
         },
         body: JSON.stringify({
             query,
-            variables: { first: fetchLimit }
+            variables: { first: fetchLimit, after: afterCursor }
         })
     });
 
@@ -101,6 +117,12 @@ export async function fetchProductHuntSeed(context: UnifiedPlatformContext): Pro
     const { data, errors } = await res.json();
     if (errors && errors.length > 0) {
         throw new Error(`Product Hunt GraphQL error: ${errors[0].message}`);
+    }
+
+    // Save the cursor for the next pass
+    const pageInfo = data?.posts?.pageInfo;
+    if (pageInfo?.endCursor) {
+        cursorCache.set(cursorKey, pageInfo.endCursor);
     }
 
     let items = (data?.posts?.edges || []).map((edge: any) => edge.node);
@@ -114,7 +136,6 @@ export async function fetchProductHuntSeed(context: UnifiedPlatformContext): Pro
     }
 
     return items.slice(0, maxItems).map((item: any) => {
-        // Build a rich description body
         const descParts: string[] = [];
         if (item.tagline) descParts.push(item.tagline);
         if (item.description) descParts.push(item.description);
@@ -129,16 +150,13 @@ export async function fetchProductHuntSeed(context: UnifiedPlatformContext): Pro
 
         const bodyContent = descParts.join("\n\n");
 
-        // Extract real maker contact information
-        // Note: PH API redacts PII (names, twitter, websites) for client_credentials apps.
-        // We filter out "[REDACTED]" values to avoid showing useless placeholder text.
+        // PH API redacts PII for client_credentials apps — filter out "[REDACTED]"
         const makers = item.makers || [];
         const realMakerNames = makers
             .map((m: any) => m.name)
             .filter((name: string) => name && name !== "[REDACTED]");
         const authorContent = realMakerNames.length > 0 ? realMakerNames.join(", ") : undefined;
 
-        // Get non-redacted twitter/website from makers
         const firstMakerTwitter = makers.find((m: any) => m.twitterUsername && m.twitterUsername !== "[REDACTED]")?.twitterUsername;
         const firstMakerWebsite = makers.find((m: any) => m.websiteUrl && m.websiteUrl !== "[REDACTED]")?.websiteUrl;
 
@@ -148,7 +166,6 @@ export async function fetchProductHuntSeed(context: UnifiedPlatformContext): Pro
             sourceId: item.id || `ph:${item.name}`,
             title: item.name || "Untitled",
             body: bodyContent,
-            // url = the product's own website (for the "Website" link)
             url: item.website || undefined,
             author: authorContent,
             createdAt: item.createdAt ? new Date(item.createdAt) : undefined,
@@ -156,9 +173,7 @@ export async function fetchProductHuntSeed(context: UnifiedPlatformContext): Pro
                 topic, 
                 votesCount: item.votesCount,
                 topics: topicNames,
-                // The PH listing URL (for "View Original Post")
                 productHuntUrl: item.url || `https://www.producthunt.com/posts/${item.slug}`,
-                // Real contact data from maker profiles (if not redacted)
                 makerTwitter: firstMakerTwitter ? `https://x.com/${firstMakerTwitter}` : undefined,
                 makerWebsite: firstMakerWebsite || undefined,
             },
