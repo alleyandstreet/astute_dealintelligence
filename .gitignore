@@ -72,3 +72,8 @@ next-env.d.ts
 /test-exports.js
 /list-users.ts
 /find-backticks.js
+
+# Debug scratch scripts
+scratch/
+fix_dealmodal.py
+test-ph.js

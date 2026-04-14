@@ -32,6 +32,12 @@ const BUSINESS_SIGNALS = [
     "newsletter",
     "lifetime value",
     "ltv",
+    "consulting",
+    "services",
+    "ecommerce",
+    "b2b",
+    "media",
+    "marketing",
 ];
 
 const OPINION_SIGNALS = [
@@ -158,7 +164,7 @@ export function classifyDealCandidate(
     }
 
     const confidence = computeConfidence(score);
-    const minConfidence = input.minConfidence ?? 0.52;
+    const minConfidence = input.minConfidence ?? 0.45;
 
     const reasons = [
         ...strong.reasons,

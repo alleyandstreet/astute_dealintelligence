@@ -9,47 +9,48 @@ datasource db {
 }
 
 model User {
-  id             String          @id @default(cuid())
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  username       String          @unique
-  password       String
-  email          String?
-  role           String          @default("member")
-  isActive       Boolean         @default(true)
-  lastLogin      DateTime?
-  logs           ActivityLog[]
-  businesses     Business[]
-  assignedDeals  Deal[]          @relation("DealOwner")
-  scheduledPosts ScheduledPost[]
-  savedBlueprints SavedBlueprint[]
-  assignedCrmTasks CrmTask[]     @relation("TaskAssignee")
-  createdCrmTasks  CrmTask[]     @relation("TaskCreator")
-  attendanceSessions InternAttendance[] @relation("InternAttendanceUser")
-  featureAccesses UserFeatureAccess[]
-  onboardingTemplatesCreated OnboardingTemplate[] @relation("OnboardingTemplateCreator")
-  onboardingAssignments OnboardingAssignment[] @relation("OnboardingAssignee")
-  onboardingAssignmentsSet OnboardingAssignment[] @relation("OnboardingAssignedBy")
-  notesAuthored  Note[]          @relation("NoteAuthor")
+  id                         String                 @id @default(cuid())
+  createdAt                  DateTime               @default(now())
+  updatedAt                  DateTime               @updatedAt
+  username                   String                 @unique
+  password                   String
+  email                      String?
+  role                       String                 @default("member")
+  isActive                   Boolean                @default(true)
+  lastLogin                  DateTime?
+  logs                       ActivityLog[]
+  businesses                 Business[]
+  assignedDeals              Deal[]                 @relation("DealOwner")
+  dealsMoved                 Deal[]                 @relation("DealLastMovedBy")
+  scheduledPosts             ScheduledPost[]
+  savedBlueprints            SavedBlueprint[]
+  assignedCrmTasks           CrmTask[]              @relation("TaskAssignee")
+  createdCrmTasks            CrmTask[]              @relation("TaskCreator")
+  attendanceSessions         InternAttendance[]     @relation("InternAttendanceUser")
+  featureAccesses            UserFeatureAccess[]
+  onboardingTemplatesCreated OnboardingTemplate[]   @relation("OnboardingTemplateCreator")
+  onboardingAssignments      OnboardingAssignment[] @relation("OnboardingAssignee")
+  onboardingAssignmentsSet   OnboardingAssignment[] @relation("OnboardingAssignedBy")
+  notesAuthored              Note[]                 @relation("NoteAuthor")
 }
 
 model SavedBlueprint {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
-  title     String
-  prompt    String
-  format    String
-  persona   String
-  thinking  String?
-  
+
+  title    String
+  prompt   String
+  format   String
+  persona  String
+  thinking String?
+
   // JSON Blobs for the flexible analysis and structure
-  blueprint Json     // The "Viral Intelligence" (trendingHooks, analysis, viralGeometry)
-  outline   Json     // The "Architected Script" (title, hook, structure, cta, metaData)
-  
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  blueprint Json // The "Viral Intelligence" (trendingHooks, analysis, viralGeometry)
+  outline   Json // The "Architected Script" (title, hook, structure, cta, metaData)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
@@ -118,6 +119,8 @@ model Deal {
   contactDiscord  String?
   ownerId         String?
   owner           User?      @relation("DealOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  lastMovedById   String?
+  lastMovedBy     User?      @relation("DealLastMovedBy", fields: [lastMovedById], references: [id], onDelete: SetNull)
   priority        String     @default("medium")
   nextAction      String?
   nextActionAt    DateTime?
@@ -134,14 +137,14 @@ model Deal {
 }
 
 model Note {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  content   String
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now())
+  content    String
   authorName String?
-  userId    String?
-  dealId    String
-  user      User?    @relation("NoteAuthor", fields: [userId], references: [id], onDelete: SetNull)
-  deal      Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  userId     String?
+  dealId     String
+  user       User?    @relation("NoteAuthor", fields: [userId], references: [id], onDelete: SetNull)
+  deal       Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
 
   @@index([dealId, createdAt])
   @@index([userId])
@@ -219,22 +222,22 @@ model ScheduledPost {
 }
 
 model CrmTask {
-  id           String   @id @default(cuid())
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id           String    @id @default(cuid())
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
   title        String
   description  String?
-  status       String   @default("todo")
-  priority     String   @default("medium")
+  status       String    @default("todo")
+  priority     String    @default("medium")
   dueDate      DateTime?
   completedAt  DateTime?
   notes        String?
   dealId       String?
   assignedToId String?
   createdById  String?
-  deal         Deal?    @relation(fields: [dealId], references: [id], onDelete: SetNull)
-  assignedTo   User?    @relation("TaskAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
-  createdBy    User?    @relation("TaskCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  deal         Deal?     @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  assignedTo   User?     @relation("TaskAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  createdBy    User?     @relation("TaskCreator", fields: [createdById], references: [id], onDelete: SetNull)
 
   @@index([status])
   @@index([priority])
@@ -243,15 +246,15 @@ model CrmTask {
 }
 
 model InternAttendance {
-  id              String   @id @default(cuid())
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id              String    @id @default(cuid())
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
   userId          String
-  clockInAt       DateTime @default(now())
+  clockInAt       DateTime  @default(now())
   clockOutAt      DateTime?
   durationMinutes Int?
   notes           String?
-  user            User     @relation("InternAttendanceUser", fields: [userId], references: [id], onDelete: Cascade)
+  user            User      @relation("InternAttendanceUser", fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, clockInAt])
   @@index([clockOutAt])
@@ -279,16 +282,16 @@ model UserFeatureAccess {
 }
 
 model OnboardingTemplate {
-  id          String   @id @default(cuid())
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id          String                 @id @default(cuid())
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
   name        String
   description String?
-  steps       Json     @default("[]")
-  isDefault   Boolean  @default(false)
-  isActive    Boolean  @default(true)
+  steps       Json                   @default("[]")
+  isDefault   Boolean                @default(false)
+  isActive    Boolean                @default(true)
   createdById String?
-  createdBy   User?    @relation("OnboardingTemplateCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  createdBy   User?                  @relation("OnboardingTemplateCreator", fields: [createdById], references: [id], onDelete: SetNull)
   assignments OnboardingAssignment[]
 
   @@index([isDefault, isActive])

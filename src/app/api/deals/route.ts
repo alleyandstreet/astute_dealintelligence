@@ -27,6 +27,9 @@ export async function GET(request: NextRequest) {
                     owner: {
                         select: { id: true, username: true, email: true },
                     },
+                    lastMovedBy: {
+                        select: { id: true, username: true, email: true },
+                    },
                     tags: { include: { tag: true } },
                     notes: true,
                     crmTasks: {
@@ -47,6 +50,9 @@ export async function GET(request: NextRequest) {
             orderBy: { createdAt: "desc" },
             include: {
                 owner: {
+                    select: { id: true, username: true, email: true },
+                },
+                lastMovedBy: {
                     select: { id: true, username: true, email: true },
                 },
                 tags: { include: { tag: true } },
@@ -91,7 +97,7 @@ export async function POST(request: NextRequest) {
                 valuationMax: body.valuationMax || null,
                 source: body.source || "manual",
                 sourceId: body.sourceId || null,
-                sourceName: body.sourceName || null,
+                sourceName: body.sourceName || (body.source ? body.source.charAt(0).toUpperCase() + body.source.slice(1) : "Manual"),
                 redditUrl: body.redditUrl || null,
                 redditAuthor: body.redditAuthor || null,
                 redditScore: body.redditScore || null,
@@ -160,6 +166,9 @@ export async function PATCH(request: NextRequest) {
         }
         if ("lastContactedAt" in normalizedData) {
             normalizedData.lastContactedAt = normalizedData.lastContactedAt ? new Date(String(normalizedData.lastContactedAt)) : null;
+        }
+        if ("status" in normalizedData && sessionUser?.id) {
+            normalizedData.lastMovedById = sessionUser.id;
         }
 
         const deal = await db.deal.update({

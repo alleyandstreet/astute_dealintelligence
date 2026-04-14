@@ -210,6 +210,7 @@ export async function scanIndieHustle(
                         name: analysis.business_name !== "Unknown Business" ? analysis.business_name : title,
                         description: content.slice(0, 2000),
                         source: "indiehustle",
+                        sourceName: "IndieHustle",
                         industry: analysis.industry,
                         revenue: parsedRevenue,
                         revenueType: analysis.revenue_type,

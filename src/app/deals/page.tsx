@@ -17,8 +17,6 @@ type DealActiveCollaborator = {
     lastSeenAt: string;
 };
 
-
-
 export default function DealsPage() {
     const [deals, setDeals] = useState<Deal[]>([]);
     const [loading, setLoading] = useState(true);
@@ -463,7 +461,7 @@ export default function DealsPage() {
                 >
                     <option value="all">All Sources</option>
                     <option value="reddit">Reddit</option>
-                    <option value="ProductHunt">Product Hunt</option>
+                    <option value="producthunt">Product Hunt</option>
                     <option value="indiehustle">Indie Hustle</option>
                     <option value="indiehackers">Indie Hackers</option>
                 </select>

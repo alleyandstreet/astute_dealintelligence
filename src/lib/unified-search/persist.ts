@@ -47,14 +47,26 @@ export async function persistUnifiedDeals(
             if (existingByUrl) continue;
         }
 
+        // For Product Hunt: use the PH listing URL for "View Original Post",
+        // and the product website for "Website". For other platforms, use url for both.
+        const isProductHunt = deal.primary.platform === "producthunt";
+        const phListingUrl = isProductHunt 
+            ? (deal.primary.metadata?.productHuntUrl as string | undefined) 
+            : undefined;
+        const makerTwitter = isProductHunt
+            ? (deal.primary.metadata?.makerTwitter as string | undefined)
+            : undefined;
+
         await db.deal.create({
             data: {
                 name: deal.primary.title.slice(0, 200),
                 description: deal.primary.body.slice(0, 2000),
-                source: "unified",
+                source: deal.primary.platform,
                 sourceName: `Unified(${deal.platforms.join(",")})`,
                 sourceId,
-                redditUrl: deal.primary.url,
+                // redditUrl = "View Original Post" link
+                // For PH: the PH listing page. For others: the post URL.
+                redditUrl: phListingUrl || deal.primary.url,
                 redditAuthor: deal.primary.author || null,
                 status: "new_leads",
                 aiSummary: `Unified scan (${Math.round(deal.confidence * 100)}% confidence). ${deal.primary.classification.reasons.slice(0, 3).join("; ")}`,
@@ -67,7 +79,10 @@ export async function persistUnifiedDeals(
                 industry: typeof deal.primary.metadata?.industry === "string" ? deal.primary.metadata.industry : null,
                 revenue: arr,
                 revenueType: deal.primary.classification.revenueHint,
-                contactWebsite: deal.primary.url,
+                // contactWebsite = the product's own website
+                contactWebsite: deal.primary.url || null,
+                // Populate real contact info from maker profiles
+                contactTwitter: makerTwitter || null,
             },
         });
 

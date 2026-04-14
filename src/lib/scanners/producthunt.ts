@@ -142,6 +142,7 @@ export async function scanProductHunt(
                             name: analysis.business_name !== "Unknown Business" ? analysis.business_name : title,
                             description: content,
                             source: "ProductHunt",
+                            sourceName: "ProductHunt",
                             industry: analysis.industry,
                             revenue: analysis.estimated_revenue !== "Not mentioned" ? parseFloat(analysis.estimated_revenue.replace(/[^0-9.]/g, '')) || 0 : 0,
                             revenueType: analysis.revenue_type,

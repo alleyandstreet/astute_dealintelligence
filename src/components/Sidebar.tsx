@@ -18,10 +18,13 @@ import {
     ChevronDown,
     ChevronRight,
     Target,
+    Loader2,
+    Zap,
     type LucideIcon,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { AstuteLogo } from "@/components/AstuteLogo";
+import { useScraper } from "@/components/ScraperProvider";
 
 interface NavItem {
     label: string;
@@ -232,16 +235,52 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                         <span className="font-medium">Logout</span>
                     </button>
 
-                    {/* Stats card (hidden on very small screens to save space) */}
-                    <div className="mt-4 p-4 rounded-xl bg-gradient-to-br from-emerald-500/10 to-sky-500/5 border border-emerald-500/20 hidden sm:block">
-                        <p className="text-[10px] uppercase tracking-widest text-[var(--text-dim)] mb-1 font-semibold">Live System</p>
-                        <div className="flex items-center justify-between">
-                            <p className="text-xl font-bold text-emerald-300">Online</p>
-                            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
-                        </div>
-                    </div>
+                    {/* Live Scrapers Status */}
+                    <LiveScrapersStatus />
                 </div>
             </aside>
         </>
+    );
+}
+
+function LiveScrapersStatus() {
+    const { activeJobs } = useScraper();
+
+    if (activeJobs.length === 0) {
+        return (
+            <div className="mt-4 p-4 rounded-xl bg-gradient-to-br from-emerald-500/10 to-sky-500/5 border border-emerald-500/20 hidden sm:block">
+                <p className="text-[10px] uppercase tracking-widest text-[var(--text-dim)] mb-1 font-semibold">Live System</p>
+                <div className="flex items-center justify-between">
+                    <p className="text-sm font-bold text-emerald-300">Operational</p>
+                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="mt-4 p-3 rounded-xl bg-zinc-900/50 border border-emerald-500/30 space-y-3 hidden sm:block">
+            <p className="text-[10px] uppercase tracking-widest text-emerald-400 mb-1 font-bold flex items-center gap-2">
+                <Zap className="w-3 h-3 fill-emerald-400" /> Live Scrapers ({activeJobs.length})
+            </p>
+            <div className="space-y-2">
+                {activeJobs.map(job => (
+                    <div key={job.id} className="flex flex-col gap-1">
+                        <div className="flex items-center justify-between text-[10px]">
+                            <span className="text-white font-medium capitalize">{job.platform}</span>
+                            <span className="text-emerald-400 flex items-center gap-1">
+                                <Loader2 className="w-2 h-2 animate-spin" /> running
+                            </span>
+                        </div>
+                        <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
+                            <div 
+                                className="h-full bg-emerald-500 transition-all duration-1000" 
+                                style={{ width: '60%' }}
+                            />
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
     );
 }

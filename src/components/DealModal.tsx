@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -24,6 +24,7 @@ import {
     RotateCcw,
     ChevronLeft,
     ChevronRight,
+    Users
 } from "lucide-react";
 import { toast } from "sonner";
 import TagManager from "./TagManager";
@@ -104,6 +105,51 @@ export default function DealModal({ deal, isOpen, onClose, onStatusChange, onDel
     const [isEnriching, setIsEnriching] = useState(false);
 
 
+
+    const sourceConfig = useMemo(() => {
+        const s = (deal?.source || "").toLowerCase();
+        const baseUrl = deal?.redditUrl || "";
+        const author = deal?.redditAuthor || "";
+
+        if (s === "producthunt") {
+            return {
+                label: "ProductHunt",
+                color: "orange",
+                icon: <Target className="w-4 h-4" />,
+                outreachUrl: baseUrl
+            };
+        }
+        if (s === "indiehustle") {
+            return {
+                label: "IndieHustle",
+                color: "purple",
+                icon: <Sparkles className="w-4 h-4" />,
+                outreachUrl: baseUrl
+            };
+        }
+        if (s === "indiehackers" || s === "indiehacker") {
+            return {
+                label: "Indie Hackers",
+                color: "blue",
+                icon: <MessageSquare className="w-4 h-4" />,
+                outreachUrl: author ? `https://www.indiehackers.com/${author}` : baseUrl
+            };
+        }
+        if (s === "reddit") {
+            return {
+                label: deal?.sourceName || "Reddit",
+                color: "red",
+                icon: <MessageSquare className="w-4 h-4" />,
+                outreachUrl: author ? `https://www.reddit.com/message/compose/?to=${author}` : baseUrl
+            };
+        }
+        return {
+            label: deal?.sourceName || (deal?.source ? deal.source.charAt(0).toUpperCase() + deal.source.slice(1) : "Manual"),
+            color: "cyan",
+            icon: <Building2 className="w-4 h-4" />,
+            outreachUrl: baseUrl
+        };
+    }, [deal?.source, deal?.sourceName, deal?.redditUrl, deal?.redditAuthor]);
 
     const handleGenerateMemo = async () => {
         if (!deal) return;
@@ -316,12 +362,20 @@ export default function DealModal({ deal, isOpen, onClose, onStatusChange, onDel
             onStatusChange(deal.id, status);
         }
         try {
-            await fetch("/api/deals", {
+            const res = await fetch("/api/deals", {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ id: deal.id, status }),
             });
-            toast.success("Status updated!");
+            if (res.ok) {
+                const updatedDeal = await res.json();
+                if (onDealUpdated) {
+                    onDealUpdated(updatedDeal);
+                }
+                toast.success("Status updated!");
+            } else {
+                toast.error("Failed to update status");
+            }
         } catch {
             toast.error("Failed to update status");
         }
@@ -429,7 +483,20 @@ export default function DealModal({ deal, isOpen, onClose, onStatusChange, onDel
                                     )}
                                 </div>
                                 <h2 className="text-xl sm:text-2xl font-bold text-white truncate max-w-full">{deal.name}</h2>
-                                <p className="text-xs text-[var(--text-muted)] mt-1">Source: <span className="text-cyan-400">{deal.sourceName}</span></p>
+                                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1">
+                                    <p className="text-xs text-[var(--text-muted)] flex items-center gap-1.5">
+                                        Source: <span className="text-cyan-400 font-medium">{sourceConfig.label}</span>
+                                    </p>
+                                    {deal.lastMovedBy && (
+                                        <div 
+                                            className="px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-[10px] flex items-center gap-1.5 shadow-sm"
+                                            title={`Last status update by ${deal.lastMovedBy.username}`}
+                                        >
+                                            <Users className="w-3 h-3" />
+                                            <span>Moved by <b>{deal.lastMovedBy.username}</b></span>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
 
                             <div className="flex items-center gap-2 absolute top-4 right-4 sm:static">
@@ -638,7 +705,7 @@ export default function DealModal({ deal, isOpen, onClose, onStatusChange, onDel
                                                 {/* Author / Contact Person */}
                                                 {deal.redditAuthor && (
                                                     <div className="flex items-center gap-2">
-                                                        {deal.source === 'reddit' ? (
+                                                        {deal.source?.toLowerCase() === 'reddit' ? (
                                                             <a
                                                                 href={`https://reddit.com/u/${deal.redditAuthor}`}
                                                                 target="_blank"
@@ -647,6 +714,16 @@ export default function DealModal({ deal, isOpen, onClose, onStatusChange, onDel
                                                             >
                                                                 <User className="w-4 h-4" />
                                                                 u/{deal.redditAuthor}
+                                                            </a>
+                                                        ) : deal.source?.toLowerCase() === 'indiehackers' ? (
+                                                            <a
+                                                                href={`https://www.indiehackers.com/${deal.redditAuthor}`}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="flex items-center gap-2 text-cyan-400 hover:text-cyan-300"
+                                                            >
+                                                                <User className="w-4 h-4" />
+                                                                {deal.redditAuthor}
                                                             </a>
                                                         ) : (
                                                             <div className="flex items-center gap-2 text-[var(--text)]">
@@ -905,7 +982,7 @@ export default function DealModal({ deal, isOpen, onClose, onStatusChange, onDel
                                             </button>
                                         </div>
                                         <p className="text-[var(--text-muted)] text-sm mb-0">
-                                            Crafted by Gemini AI based on context. Copy and send via {deal.source === 'ProductHunt' ? 'ProductHunt' : 'Reddit DM'}.
+                                            Crafted by Gemini AI based on context. Copy and send via {deal.sourceName || deal.source || 'Direct Message'}.
                                         </p>
                                     </div>
 
@@ -947,36 +1024,26 @@ export default function DealModal({ deal, isOpen, onClose, onStatusChange, onDel
                                     </div>
 
                                     <div className="mt-6 flex gap-4">
-                                        {deal.source === 'ProductHunt' && deal.redditUrl ? (
+                                        {sourceConfig.outreachUrl && (
                                             <a
-                                                href={deal.redditUrl}
+                                                href={sourceConfig.outreachUrl}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="btn-primary flex items-center gap-2"
                                             >
                                                 <ExternalLink className="w-4 h-4" />
-                                                Open ProductHunt
-                                            </a>
-                                        ) : deal.source === 'reddit' && deal.redditAuthor && (
-                                            <a
-                                                href={`https://www.reddit.com/message/compose/?to=${deal.redditAuthor}`}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="btn-primary flex items-center gap-2"
-                                            >
-                                                <MessageSquare className="w-4 h-4" />
-                                                Open Reddit DM
+                                                Open {sourceConfig.label}
                                             </a>
                                         )}
                                         <button
                                             onClick={() => {
-                                                handleStatusChange("contacted");
-                                                toast.success("Marked as Contacted");
+                                                handleStatusChange("engaged");
+                                                toast.success("Marked as Engaged");
                                             }}
                                             className="btn-secondary flex items-center gap-2"
                                         >
                                             <Check className="w-4 h-4" />
-                                            Mark as Contacted
+                                            Mark as Engaged
                                         </button>
                                     </div>
                                 </div>

@@ -2,7 +2,7 @@ import { requireAuth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 
-const STATUSES = ["new_leads", "qualified", "contacted", "in_discussion", "due_diligence"] as const;
+const STATUSES = ["new_leads", "qualified", "disqualified", "engaged", "in_discussion", "due_diligence"] as const;
 
 export async function GET() {
     const { session, response } = await requireAuth({

@@ -74,7 +74,8 @@ function AnalyticsContent() {
     const statusData = useMemo(() => [
         { name: "New", value: filteredDeals.filter((d) => d.status === "new_leads").length },
         { name: "Qualified", value: filteredDeals.filter((d) => d.status === "qualified").length },
-        { name: "Contacted", value: filteredDeals.filter((d) => d.status === "contacted").length },
+        { name: "Disqualified", value: filteredDeals.filter((d) => d.status === "disqualified").length },
+        { name: "Engaged", value: filteredDeals.filter((d) => d.status === "engaged").length },
         { name: "Discussion", value: filteredDeals.filter((d) => d.status === "in_discussion").length },
         { name: "DD", value: filteredDeals.filter((d) => d.status === "due_diligence").length },
     ], [filteredDeals]);

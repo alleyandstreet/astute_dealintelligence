@@ -17,11 +17,13 @@ import type {
 } from "@/lib/unified-search/types";
 import { buildCacheKey, readCache, writeCache } from "@/lib/unified-search/cache";
 import { enforceRateLimit } from "@/lib/unified-search/rate-limit";
+import { jobManager } from "@/lib/unified-search/job-manager";
 
 interface RunUnifiedSearchOptions {
     input: UnifiedSearchInput;
     send: UnifiedSend;
     userId?: string;
+    jobId?: string;
 }
 
 function dedupeSeeds(seeds: string[]): string[] {
@@ -80,7 +82,11 @@ function toCandidate(item: RawScrapedItem, classification: ReturnType<typeof cla
     };
 }
 
-export async function runUnifiedSearch({ input, send, userId }: RunUnifiedSearchOptions): Promise<UnifiedSearchSummary> {
+export async function runUnifiedSearch({ input, send, userId, jobId }: RunUnifiedSearchOptions): Promise<UnifiedSearchSummary> {
+    if (jobId) {
+        jobManager.updateJob(jobId, { status: "running" });
+    }
+
     const configs = listPlatformConfigs(input.platforms);
     const deadLetters: DeadLetterEntry[] = [];
     const platformRuns: PlatformRunResult[] = [];
@@ -231,6 +237,12 @@ export async function runUnifiedSearch({ input, send, userId }: RunUnifiedSearch
 
     summary.persisted = persisted.created;
     summary.filteredByARR = persisted.filteredByARR;
+    
+    send({
+        type: "metric",
+        key: "dealsCreated",
+        value: summary.persisted,
+    });
 
     send({
         type: "status",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, Suspense } from "react";
+import { useState, useRef, useEffect, Suspense, useMemo } from "react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSearchParams } from "next/navigation";
@@ -21,11 +21,10 @@ import {
     DollarSign,
     Save,
     FolderOpen,
-    Trash2,
     Star,
-    ArrowRight,
 } from "lucide-react";
 import Link from "next/link";
+import { useScraper } from "@/components/ScraperProvider";
 
 interface SavedConfig {
     id: string;
@@ -170,40 +169,36 @@ interface SearchSlide {
 function SourcesContent() {
     const searchParams = useSearchParams();
     const sourceParam = searchParams.get("source");
-    const initialPlatform = sourceParam === "producthunt" ? "producthunt" : sourceParam === "indiehustle" ? "indiehustle" : "reddit";
+    const platform = (sourceParam || "reddit") as string;
+
+    const { activeJobs, jobs, startScan } = useScraper();
 
     const [subreddits, setSubreddits] = useState<string[]>([]);
     const [keywords, setKeywords] = useState<string[]>([]);
     const [newSubreddit, setNewSubreddit] = useState("");
     const [newKeyword, setNewKeyword] = useState("");
-
-    // Determine platform from source param, default to reddit
-    const platform = (sourceParam || "reddit") as string;
     const [minRevenue, setMinRevenue] = useState("");
+    const [scanIntensity, setScanIntensity] = useState<"1x" | "2x" | "4x" | "until30">("1x");
 
-
-
-    const [isScanning, setIsScanning] = useState(false);
-    const [logs, setLogs] = useState<{ id: string; message: string; type: string }[]>([]);
-    const [scanResult, setScanResult] = useState<any>(null);
-    const [currentSlide, setCurrentSlide] = useState<SearchSlide | null>(null);
-    const [stageIndex, setStageIndex] = useState(0);
-    const [slideHistory, setSlideHistory] = useState<SearchSlide[]>([]);
+    // Local UI state for visualization
     const [savedConfigs, setSavedConfigs] = useState<SavedConfig[]>([]);
     const [showSaveModal, setShowSaveModal] = useState(false);
     const [configName, setConfigName] = useState("");
     const [isSaving, setIsSaving] = useState(false);
     const logEndRef = useRef<HTMLDivElement>(null);
 
-    useEffect(() => {
-        fetchSavedConfigs();
-    }, []);
+    // Derived job state
+    const currentJob = useMemo(() => {
+        return activeJobs.find(j => j.platform === platform) || 
+               jobs.filter(j => j.platform === platform).sort((a,b) => b.createdAt - a.createdAt)[0];
+    }, [activeJobs, jobs, platform]);
 
-    useEffect(() => {
-        if (logEndRef.current) {
-            logEndRef.current.scrollIntoView({ behavior: "smooth" });
-        }
-    }, [logs]);
+    const isScanning = currentJob?.status === "running" || currentJob?.status === "pending";
+
+    // Visualization stuff
+    const [stageIndex, setStageIndex] = useState(0);
+    const [currentSlide, setCurrentSlide] = useState<SearchSlide | null>(null);
+    const [slideHistory, setSlideHistory] = useState<SearchSlide[]>([]);
 
     useEffect(() => {
         if (!isScanning) return;
@@ -213,18 +208,49 @@ function SourcesContent() {
         return () => clearInterval(interval);
     }, [isScanning, platform]);
 
+    // Handle slide updates based on logs
+    useEffect(() => {
+        if (!currentJob?.logs) return;
+        const lastLog = currentJob.logs[currentJob.logs.length - 1];
+        if (!lastLog) return;
+
+        if (lastLog.message.includes("Fetching r/")) {
+            const sub = lastLog.message.match(/r\/(\w+)/)?.[1];
+            if (sub) {
+                const id = `fetch-${sub}`;
+                if (currentSlide?.id !== id) {
+                    const slide: SearchSlide = { id, type: "subreddit", content: `r/${sub}`, detail: "Downloading posts...", color: "blue" };
+                    setCurrentSlide(slide);
+                    setSlideHistory(prev => [...prev.slice(-4), slide]);
+                }
+            }
+        } else if (lastLog.message.includes("NEW DEAL")) {
+            const title = lastLog.message.match(/NEW DEAL: "([^"]+)"/)?.[1];
+            if (title) {
+                const id = `deal-${Date.now()}`;
+                const slide: SearchSlide = { id, type: "deal", content: title, detail: "🔥 High-potential deal found!", color: "amber" };
+                setCurrentSlide(slide);
+                setSlideHistory(prev => [...prev.slice(-4), slide]);
+            }
+        }
+    }, [currentJob?.logs, currentSlide?.id]);
+
+    useEffect(() => {
+        fetchSavedConfigs();
+    }, []);
+
+    useEffect(() => {
+        if (logEndRef.current) logEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }, [currentJob?.logs]);
+
     const fetchSavedConfigs = async () => {
         try {
             const res = await fetch("/api/search-configs");
             if (res.ok) {
                 const data = await res.json();
                 setSavedConfigs(data);
-
-                // Load default config if exists
                 const defaultConfig = data.find((c: SavedConfig) => c.isDefault);
-                if (defaultConfig) {
-                    loadConfig(defaultConfig);
-                }
+                if (defaultConfig) loadConfig(defaultConfig);
             }
         } catch (error) {
             console.error("Failed to fetch saved configs:", error);
@@ -237,34 +263,59 @@ function SourcesContent() {
         toast.success(`Loaded "${config.name}"`);
     };
 
-    const saveConfig = async () => {
-        if (!configName.trim() || subreddits.length === 0) {
-            toast.error("Name and at least one subreddit required");
+    const handleStartScan = async () => {
+        if (subreddits.length === 0 && platform !== 'indiehackers') {
+            toast.error("Add at least one source");
             return;
         }
-        setIsSaving(true);
-        try {
-            const res = await fetch("/api/search-configs", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    name: configName,
-                    subreddits,
-                    keywords,
-                }),
-            });
-            if (res.ok) {
-                const config = await res.json();
-                setSavedConfigs([config, ...savedConfigs]);
-                setShowSaveModal(false);
-                setConfigName("");
-                toast.success("Configuration saved!");
-            }
-        } catch (error) {
-            toast.error("Failed to save configuration");
-        } finally {
-            setIsSaving(false);
+
+        const intensityConfig = {
+            "1x": { repeatCount: 1, targetDeals: undefined },
+            "2x": { repeatCount: 2, targetDeals: undefined },
+            "4x": { repeatCount: 4, targetDeals: undefined },
+            "until30": { repeatCount: 10, targetDeals: 30 },
+        }[scanIntensity];
+
+        const jobId = await startScan(platform, {
+            subreddits,
+            keywords,
+            minRevenue,
+            maxItemsPerPlatform: 20,
+            repeatCount: intensityConfig.repeatCount,
+            targetDeals: intensityConfig.targetDeals,
+        });
+
+        if (jobId) {
+            setSlideHistory([]);
+            setStageIndex(0);
         }
+    };
+
+    const addPack = (key: string) => {
+        let pack: any;
+        if (platform === "reddit") pack = SUBREDDIT_PACKS[key as keyof typeof SUBREDDIT_PACKS];
+        else if (platform === "producthunt") pack = TOPIC_PACKS[key as keyof typeof TOPIC_PACKS];
+        else if (platform === "indiehustle") pack = INDIEHUSTLE_PACKS[key as keyof typeof INDIEHUSTLE_PACKS];
+        else if (platform === "indiehackers") pack = INDIEHACKERS_PACKS[key as keyof typeof INDIEHACKERS_PACKS];
+
+        if (pack) {
+            setSubreddits((prev) => [...new Set([...prev, ...(pack.subreddits || pack.items)])]);
+            setKeywords((prev) => [...new Set([...prev, ...(pack.keywords || [])])]);
+            toast.success(`Added ${pack.name}`);
+        }
+    };
+
+    const addSubreddit = () => {
+        if (!newSubreddit.trim()) return;
+        const sub = newSubreddit.replace(/^r\//, "").trim();
+        if (!subreddits.includes(sub)) setSubreddits([...subreddits, sub]);
+        setNewSubreddit("");
+    };
+
+    const addKeyword = () => {
+        if (!newKeyword.trim()) return;
+        if (!keywords.includes(newKeyword.trim())) setKeywords([...keywords, newKeyword.trim()]);
+        setNewKeyword("");
     };
 
     const deleteConfig = async (id: string) => {
@@ -277,162 +328,29 @@ function SourcesContent() {
         }
     };
 
-    const addPack = (key: string) => {
-        if (platform === "reddit") {
-            const pack = SUBREDDIT_PACKS[key as keyof typeof SUBREDDIT_PACKS];
-            setSubreddits((prev) => [...new Set([...prev, ...pack.subreddits])]);
-            setKeywords((prev) => [...new Set([...prev, ...pack.keywords])]);
-            toast.success(`Added ${pack.name}`);
-        } else if (platform === "producthunt") {
-            const pack = TOPIC_PACKS[key as keyof typeof TOPIC_PACKS];
-            setSubreddits((prev) => [...new Set([...prev, ...pack.items])]);
-            setKeywords((prev) => [...new Set([...prev, ...pack.keywords])]);
-            toast.success(`Added ${pack.name}`);
-        } else if (platform === "indiehustle") {
-            const pack = INDIEHUSTLE_PACKS[key as keyof typeof INDIEHUSTLE_PACKS];
-            setSubreddits((prev) => [...new Set([...prev, ...pack.items])]);
-            setKeywords((prev) => [...new Set([...prev, ...pack.keywords])]);
-            toast.success(`Added ${pack.name}`);
-        } else if (platform === "indiehackers") {
-            const pack = INDIEHACKERS_PACKS[key as keyof typeof INDIEHACKERS_PACKS];
-            setSubreddits((prev) => [...new Set([...prev, ...pack.items])]);
-            setKeywords((prev) => [...new Set([...prev, ...pack.keywords])]);
-            toast.success(`Added ${pack.name}`);
-        }
-    };
-
-    const addSubreddit = () => {
-        if (!newSubreddit.trim()) return;
-        const sub = newSubreddit.replace(/^r\//, "").trim();
-        if (!subreddits.includes(sub)) {
-            setSubreddits([...subreddits, sub]);
-        }
-        setNewSubreddit("");
-    };
-
-    const addKeyword = () => {
-        if (!newKeyword.trim()) return;
-        if (!keywords.includes(newKeyword.trim())) {
-            setKeywords([...keywords, newKeyword.trim()]);
-        }
-        setNewKeyword("");
-    };
-
-    const updateSlide = (slide: SearchSlide) => {
-        setCurrentSlide(slide);
-        setSlideHistory((prev) => [...prev.slice(-4), slide]);
-    };
-
-    const startScan = async () => {
-        if (subreddits.length === 0) {
-            toast.error("Add at least one subreddit");
+    const saveConfig = async () => {
+        if (!configName.trim() || subreddits.length === 0) {
+            toast.error("Name and at least one source required");
             return;
         }
-
-        setIsScanning(true);
-        setLogs([{ id: "start", message: "🚀 Initializing scan...", type: "status" }]);
-        setScanResult(null);
-        setSlideHistory([]);
-        setStageIndex(0);
-
-        for (const sub of subreddits) {
-            updateSlide({
-                id: `sub-${sub}`,
-                type: "subreddit",
-                content: platform === "reddit" ? `r/${sub}` : sub,
-                detail: platform === "reddit" ? "Queuing subreddit..." : "Queuing topic...",
-                color: "cyan",
-            });
-            await new Promise((r) => setTimeout(r, 300));
-        }
-
+        setIsSaving(true);
         try {
-            const response = await fetch("/api/scan", {
+            const res = await fetch("/api/search-configs", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ subreddits, keywords, platform, minRevenue }),
+                body: JSON.stringify({ name: configName, subreddits, keywords }),
             });
-
-            if (!response.body) throw new Error("No response body");
-
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-
-                const chunk = decoder.decode(value, { stream: true });
-                const lines = chunk.split("\n");
-
-                for (const line of lines) {
-                    if (line.startsWith("data: ")) {
-                        try {
-                            const data = JSON.parse(line.slice(6));
-                            if (data.type === "log" || data.type === "status") {
-                                setLogs((prev) => [
-                                    ...prev,
-                                    { id: Date.now().toString() + Math.random(), message: data.message, type: data.type },
-                                ]);
-
-                                if (data.message.includes("Fetching r/")) {
-                                    const sub = data.message.match(/r\/(\w+)/)?.[1];
-                                    if (sub) {
-                                        updateSlide({
-                                            id: `fetch-${sub}`,
-                                            type: "subreddit",
-                                            content: `r/${sub}`,
-                                            detail: "Downloading posts...",
-                                            color: "blue",
-                                        });
-                                    }
-                                } else if (data.message.includes("Got") && data.message.includes("posts")) {
-                                    const match = data.message.match(/Got (\d+) posts from r\/(\w+)/);
-                                    if (match) {
-                                        updateSlide({
-                                            id: `got-${match[2]}`,
-                                            type: "subreddit",
-                                            content: `r/${match[2]}`,
-                                            detail: `Found ${match[1]} posts`,
-                                            color: "green",
-                                        });
-                                    }
-                                } else if (data.message.includes("NEW DEAL")) {
-                                    const title = data.message.match(/NEW DEAL: "([^"]+)"/)?.[1];
-                                    if (title) {
-                                        updateSlide({
-                                            id: `deal-${Date.now()}`,
-                                            type: "deal",
-                                            content: title,
-                                            detail: "🔥 High-potential deal found!",
-                                            color: "amber",
-                                        });
-                                    }
-                                }
-                            } else if (data.type === "complete") {
-                                setScanResult(data.summary);
-                                toast.success(`Found ${data.summary.dealsCreated} new deals!`);
-                                updateSlide({
-                                    id: "complete",
-                                    type: "match",
-                                    content: `${data.summary.dealsCreated} Deals Found`,
-                                    detail: `Scanned ${data.summary.postsScanned} posts`,
-                                    color: "green",
-                                });
-                            } else if (data.type === "error") {
-                                toast.error(data.message);
-                            }
-                        } catch {
-                            // Ignore parse errors
-                        }
-                    }
-                }
+            if (res.ok) {
+                const config = await res.json();
+                setSavedConfigs([config, ...savedConfigs]);
+                setShowSaveModal(false);
+                setConfigName("");
+                toast.success("Configuration saved!");
             }
         } catch (error) {
-            toast.error("Scan failed");
-            console.error(error);
+            toast.error("Failed to save configuration");
         } finally {
-            setIsScanning(false);
+            setIsSaving(false);
         }
     };
 
@@ -450,7 +368,7 @@ function SourcesContent() {
                             ? "Configure subreddits and keywords to discover deals"
                             : platform === "producthunt"
                                 ? "Configure topics to discover ProductHunt opportunities"
-                                : `Configure settings to discover deals on ${platform === 'lobsters' ? 'Lobsters' : platform === 'indiehackers' ? 'Indie Hackers' : 'IndieHustle'}`}
+                                : `Configure settings to discover deals on ${platform === 'indiehackers' ? 'Indie Hackers' : 'IndieHustle'}`}
                     </p>
                 </div>
                 <div className="flex gap-2">
@@ -505,7 +423,7 @@ function SourcesContent() {
                 </div>
             )}
 
-            {/* Search Slideshow Visualization */}
+            {/* Search Visualization */}
             <AnimatePresence>
                 {isScanning && (
                     <motion.div
@@ -599,219 +517,153 @@ function SourcesContent() {
             </AnimatePresence>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                {/* Subreddits */}
                 <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-6">
-                    <div className="flex items-center justify-between mb-4">
-                        <h2 className="font-semibold text-white flex items-center gap-2">
-                            <Search className="w-5 h-5 text-cyan-400" />
-                            {platform === "reddit" ? "Subreddits" : platform === "producthunt" ? "Topics" : "Config / Tags"}
-                        </h2>
-                    </div>
-
+                    <h2 className="font-semibold text-white mb-4 flex items-center gap-2">
+                        <Search className="w-5 h-5 text-cyan-400" />
+                        {platform === "reddit" ? "Subreddits" : "Config / Tags"}
+                    </h2>
                     <div className="flex gap-2 mb-4">
                         <input
                             type="text"
                             value={newSubreddit}
                             onChange={(e) => setNewSubreddit(e.target.value)}
                             onKeyDown={(e) => e.key === "Enter" && addSubreddit()}
-                            placeholder={
-                                platform === "reddit" ? "r/smallbusiness" :
-                                    platform === "lobsters" ? "Tags (optional)" :
-                                        "topics..."
-                            }
+                            placeholder="Add source..."
                             className="flex-1 bg-[var(--background)] border border-[var(--border)] rounded-lg px-4 py-2 text-white placeholder:text-[var(--text-dim)] focus:border-cyan-500 focus:outline-none"
                         />
-                        <button onClick={addSubreddit} className="btn-primary px-4">
-                            <Plus className="w-4 h-4" />
-                        </button>
+                        <button onClick={addSubreddit} className="btn-primary px-4"><Plus className="w-4 h-4" /></button>
                     </div>
-
                     <div className="flex flex-wrap gap-2 min-h-[80px]">
                         {subreddits.map((sub) => (
-                            <motion.span
-                                key={sub}
-                                initial={{ opacity: 0, scale: 0.8 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20"
-                            >
+                            <motion.span key={sub} className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
                                 {platform === "reddit" ? "r/" : ""}{sub}
-                                <button
-                                    onClick={() => setSubreddits(subreddits.filter((s) => s !== sub))}
-                                    className="hover:text-white"
-                                >
-                                    <X className="w-3 h-3" />
-                                </button>
+                                <button onClick={() => setSubreddits(subreddits.filter((s) => s !== sub))}><X className="w-3 h-3" /></button>
                             </motion.span>
                         ))}
-                        {subreddits.length === 0 && (
-                            <p className="text-[var(--text-dim)] text-sm">No {platform === "reddit" ? "subreddits" : "items"} added</p>
-                        )}
                     </div>
                 </div>
 
-                {/* Keywords - Only for Reddit */}
                 {platform === "reddit" && (
                     <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-6">
                         <h2 className="font-semibold text-white mb-4 flex items-center gap-2">
-                            <Sparkles className="w-5 h-5 text-amber-400" />
-                            Keywords
+                            <Sparkles className="w-5 h-5 text-amber-400" /> Keywords
                         </h2>
-
                         <div className="flex gap-2 mb-4">
                             <input
                                 type="text"
                                 value={newKeyword}
                                 onChange={(e) => setNewKeyword(e.target.value)}
                                 onKeyDown={(e) => e.key === "Enter" && addKeyword()}
-                                placeholder="selling, MRR, exit..."
+                                placeholder="Keywords..."
                                 className="flex-1 bg-[var(--background)] border border-[var(--border)] rounded-lg px-4 py-2 text-white placeholder:text-[var(--text-dim)] focus:border-amber-500 focus:outline-none"
                             />
-                            <button onClick={addKeyword} className="btn-primary px-4 !bg-amber-500 hover:!bg-amber-600">
-                                <Plus className="w-4 h-4" />
-                            </button>
+                            <button onClick={addKeyword} className="btn-primary px-4 !bg-amber-500"><Plus className="w-4 h-4" /></button>
                         </div>
-
                         <div className="flex flex-wrap gap-2 min-h-[80px]">
                             {keywords.map((kw) => (
-                                <motion.span
-                                    key={kw}
-                                    initial={{ opacity: 0, scale: 0.8 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20"
-                                >
-                                    {kw}
-                                    <button
-                                        onClick={() => setKeywords(keywords.filter((k) => k !== kw))}
-                                        className="hover:text-white"
-                                    >
-                                        <X className="w-3 h-3" />
-                                    </button>
+                                <motion.span key={kw} className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                    {kw}<button onClick={() => setKeywords(keywords.filter((k) => k !== kw))}><X className="w-3 h-3" /></button>
                                 </motion.span>
                             ))}
-                            {keywords.length === 0 && (
-                                <p className="text-[var(--text-dim)] text-sm">No keywords added</p>
-                            )}
                         </div>
                     </div>
                 )}
             </div>
 
-            {/* Filters Section */}
+            {/* Filters */}
             <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-6 mb-8">
                 <h2 className="font-semibold text-white mb-4 flex items-center gap-2">
-                    <DollarSign className="w-5 h-5 text-green-400" />
-                    Revenue Filter
+                    <DollarSign className="w-5 h-5 text-green-400" /> Revenue Filter
                 </h2>
-                <div className="flex gap-4 items-center">
-                    <div className="flex-1 max-w-xs">
-                        <label className="text-xs text-[var(--text-muted)] mb-1 block">Min. Monthly Revenue ($)</label>
-                        <input
-                            type="number"
-                            value={minRevenue}
-                            onChange={(e) => setMinRevenue(e.target.value)}
-                            placeholder="e.g. 1000"
-                            className="w-full bg-[var(--background)] border border-[var(--border)] rounded-lg px-4 py-2 text-white placeholder:text-[var(--text-dim)] focus:border-green-500 focus:outline-none"
-                        />
-                    </div>
-                    <div className="flex-1">
-                        <p className="text-xs text-[var(--text-dim)] leading-relaxed mt-5">
-                            Set a minimum revenue threshold. Deals with revenue below this or "unknown" revenue might be filtered out (unless AI determines high potential).
-                        </p>
-                    </div>
+                <div className="flex gap-4">
+                    <input
+                        type="number"
+                        value={minRevenue}
+                        onChange={(e) => setMinRevenue(e.target.value)}
+                        placeholder="Min revenue..."
+                        className="max-w-xs bg-[var(--background)] border border-[var(--border)] rounded-lg px-4 py-2 text-white"
+                    />
+                    <p className="text-xs text-[var(--text-dim)] mt-2">Filter out lower value deals.</p>
                 </div>
             </div>
 
-            {/* Quick Add Packs - Only show for platforms that have them */}
-            {["reddit", "producthunt", "indiehustle", "indiehackers"].includes(platform) && (
-                <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-6 mb-8">
-                    <h2 className="font-semibold text-white mb-4">Quick Add {platform === "reddit" ? "Packs" : "Topics"}</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {(platform === "reddit"
-                            ? Object.entries(SUBREDDIT_PACKS)
-                            : platform === "producthunt"
-                                ? Object.entries(TOPIC_PACKS)
-                                : platform === "indiehustle"
-                                    ? Object.entries(INDIEHUSTLE_PACKS)
-                                    : Object.entries(INDIEHACKERS_PACKS)
-                        ).map(([key, pack]) => {
-                            const styles = colorStyles[pack.color] || colorStyles.cyan;
-                            return (
-                                <motion.button
-                                    key={key}
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
-                                    onClick={() => addPack(key)}
-                                    className={`p-4 rounded-xl ${styles.bg} border ${styles.border} ${styles.hover} transition-all text-left`}
-                                >
-                                    <h3 className={`font-semibold ${styles.text} mb-2`}>{pack.name}</h3>
-                                    <p className="text-xs text-[var(--text-muted)]">
-                                        {platform === "reddit"
-                                            ? (pack as any).subreddits.map((s: string) => `r/${s}`).join(", ")
-                                            : (pack as any).items.map((s: string) => s).join(", ")
-                                        }
-                                    </p>
-                                </motion.button>
-                            );
-                        })}
-                    </div>
+            {/* Quick Packs */}
+            <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-6 mb-8">
+                <h2 className="font-semibold text-white mb-4">Quick Add Packs</h2>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {(platform === "reddit"
+                        ? Object.entries(SUBREDDIT_PACKS)
+                        : platform === "producthunt"
+                            ? Object.entries(TOPIC_PACKS)
+                            : platform === "indiehustle"
+                                ? Object.entries(INDIEHUSTLE_PACKS)
+                                : Object.entries(INDIEHACKERS_PACKS)
+                    ).map(([key, pack]) => {
+                        const styles = colorStyles[pack.color] || colorStyles.cyan;
+                        return (
+                            <button key={key} onClick={() => addPack(key)} className={`p-4 rounded-xl ${styles.bg} border ${styles.border} text-left`}>
+                                <h3 className={`font-semibold ${styles.text} mb-2`}>{pack.name}</h3>
+                                <p className="text-xs text-[var(--text-muted)]">{(pack as any).subreddits?.join(", ") || (pack as any).items?.join(", ")}</p>
+                            </button>
+                        );
+                    })}
                 </div>
-            )}
+            </div>
 
-            {/* Start Scan Button */}
+            {/* Scan Intensity */}
+            <div className="bg-[var(--card)] border border-[var(--border)] rounded-xl p-6 mb-8">
+                <h2 className="font-semibold text-white mb-2">Scan Intensity</h2>
+                <p className="text-xs text-[var(--text-dim)] mb-4">Run multiple passes to discover more deals. Each pass fetches a fresh batch of listings.</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {[
+                        { id: "1x" as const, label: "1× Quick", desc: "Single pass", color: "cyan" },
+                        { id: "2x" as const, label: "2× Standard", desc: "Two passes", color: "blue" },
+                        { id: "4x" as const, label: "4× Deep", desc: "Four passes", color: "purple" },
+                        { id: "until30" as const, label: "Until 30 Deals", desc: "Auto-repeat", color: "amber" },
+                    ].map((opt) => {
+                        const isActive = scanIntensity === opt.id;
+                        const styles = colorStyles[opt.color] || colorStyles.cyan;
+                        return (
+                            <button
+                                key={opt.id}
+                                onClick={() => setScanIntensity(opt.id)}
+                                className={`p-4 rounded-xl border text-left transition-all ${
+                                    isActive
+                                        ? `${styles.bg} ${styles.border} ring-1 ring-${opt.color}-500/40`
+                                        : "border-[var(--border)] hover:border-white/20"
+                                }`}
+                            >
+                                <h3 className={`font-semibold text-sm ${isActive ? styles.text : "text-white"}`}>{opt.label}</h3>
+                                <p className="text-xs text-[var(--text-dim)] mt-1">{opt.desc}</p>
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
+
+            {/* Start button */}
             <div className="flex justify-center mb-8">
                 <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    onClick={startScan}
-
-                    disabled={isScanning || (subreddits.length === 0 && platform !== 'indiehackers' && platform !== 'lobsters')}
-                    className="btn-primary px-8 py-4 text-lg flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={handleStartScan}
+                    disabled={isScanning}
+                    className="btn-primary px-8 py-4 text-lg flex items-center gap-3 disabled:opacity-50"
                 >
-                    {isScanning ? (
-                        <>
-                            <Loader2 className="w-5 h-5 animate-spin" />
-                            Scanning...
-                        </>
-                    ) : (
-                        <>
-                            <Play className="w-5 h-5" />
-                            Start Search
-                        </>
-                    )}
+                    {isScanning ? <><Loader2 className="w-5 h-5 animate-spin" /> Scanning Platform...</> : <><Play className="w-5 h-5" /> Start Search</>}
                 </motion.button>
             </div>
 
-            {/* Scan Logs */}
-            {logs.length > 0 && !isScanning && (
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="bg-[var(--card)] border border-[var(--border)] rounded-xl overflow-hidden"
-                >
+            {/* Logs from currentJob */}
+            {currentJob?.logs && (
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-[var(--card)] border border-[var(--border)] rounded-xl overflow-hidden">
                     <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--border)]">
                         <Terminal className="w-4 h-4 text-[var(--text-muted)]" />
-                        <span className="font-medium text-white">Scan Complete</span>
-                        {scanResult && (
-                            <span className="ml-auto flex items-center gap-2 text-green-400 text-sm">
-                                <CheckCircle2 className="w-4 h-4" />
-                                {scanResult.dealsCreated} deals found
-                            </span>
-                        )}
+                        <span className="font-medium text-white">Platform Scan: {currentJob.platform} ({currentJob.status})</span>
                     </div>
                     <div className="h-48 overflow-y-auto p-4 bg-[#09090b] font-mono text-xs space-y-1">
-                        {logs.map((log) => (
-                            <div
-                                key={log.id}
-                                className={
-                                    log.type === "status"
-                                        ? "text-cyan-400"
-                                        : log.message.includes("❌")
-                                            ? "text-red-400"
-                                            : log.message.includes("✅") || log.message.includes("🔥")
-                                                ? "text-green-400"
-                                                : "text-[var(--text-muted)]"
-                                }
-                            >
+                        {currentJob.logs.map((log, idx) => (
+                            <div key={idx} className={log.type === "status" ? "text-cyan-400" : log.type === "error" ? "text-red-400" : "text-[var(--text-muted)]"}>
                                 {log.message}
                             </div>
                         ))}
@@ -820,52 +672,20 @@ function SourcesContent() {
                 </motion.div>
             )}
 
-            {/* Save Config Modal */}
+            {/* Modal remains simplified */}
             <AnimatePresence>
                 {showSaveModal && (
-                    <>
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            onClick={() => setShowSaveModal(false)}
-                            className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50"
-                        />
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.95 }}
-                            className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[var(--card)] border border-[var(--border)] rounded-xl p-6 w-full max-w-md z-50"
-                        >
+                    <div className="fixed inset-0 flex items-center justify-center z-50">
+                        <div className="absolute inset-0 bg-black/70" onClick={() => setShowSaveModal(false)} />
+                        <div className="relative bg-[var(--card)] border border-[var(--border)] rounded-xl p-6 w-full max-w-md">
                             <h3 className="text-xl font-semibold text-white mb-4">Save Configuration</h3>
-                            <input
-                                type="text"
-                                value={configName}
-                                onChange={(e) => setConfigName(e.target.value)}
-                                placeholder="Configuration name..."
-                                className="w-full bg-[var(--background)] border border-[var(--border)] rounded-lg px-4 py-3 text-white placeholder:text-[var(--text-dim)] focus:border-cyan-500 focus:outline-none mb-4"
-                            />
-                            <div className="text-sm text-[var(--text-muted)] mb-4">
-                                <p>{subreddits.length} subreddits, {keywords.length} keywords</p>
-                            </div>
+                            <input type="text" value={configName} onChange={(e) => setConfigName(e.target.value)} placeholder="Name..." className="w-full bg-[var(--background)] border border-[var(--border)] rounded-lg px-4 py-3 text-white mb-4" />
                             <div className="flex gap-3">
-                                <button
-                                    onClick={() => setShowSaveModal(false)}
-                                    className="flex-1 btn-secondary"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    onClick={saveConfig}
-                                    disabled={isSaving || !configName.trim()}
-                                    className="flex-1 btn-primary flex items-center justify-center gap-2"
-                                >
-                                    {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                                    Save
-                                </button>
+                                <button onClick={() => setShowSaveModal(false)} className="flex-1 btn-secondary">Cancel</button>
+                                <button onClick={saveConfig} disabled={isSaving} className="flex-1 btn-primary">Save</button>
                             </div>
-                        </motion.div>
-                    </>
+                        </div>
+                    </div>
                 )}
             </AnimatePresence>
         </div>

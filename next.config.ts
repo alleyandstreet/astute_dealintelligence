@@ -7,8 +7,17 @@ const nextConfig: NextConfig = {
     eslint: {
         ignoreDuringBuilds: true,
     },
+    transpilePackages: [
+        "three",
+        "@react-three/fiber",
+        "@react-three/drei",
+        "framer-motion"
+    ],
     turbopack: {
-        root: path.resolve(process.cwd()),
+        resolveAlias: {
+            "@radix-ui/react-id": "./node_modules/@radix-ui/react-id/dist/index.mjs",
+            "@radix-ui/react-use-callback-ref": "./node_modules/@radix-ui/react-use-callback-ref/dist/index.mjs",
+        },
     },
     webpack: (config) => {
         config.resolve = config.resolve || {};

@@ -99,6 +99,44 @@ export default function DealCard({
         [deal.status],
     );
 
+    const sourceConfig = useMemo(() => {
+        const s = (deal.source || "").toLowerCase();
+        if (s === "producthunt") {
+            return {
+                label: "ProductHunt",
+                color: "orange",
+                icon: <Target className="w-3 h-3" />
+            };
+        }
+        if (s === "indiehustle") {
+            return {
+                label: "IndieHustle",
+                color: "purple",
+                icon: <Zap className="w-3 h-3" />
+            };
+        }
+        if (s === "indiehackers" || s === "indiehacker") {
+            return {
+                label: "Indie Hackers",
+                color: "blue",
+                icon: <MessageSquare className="w-3 h-3" />
+            };
+        }
+        if (s === "reddit") {
+            return {
+                label: deal.sourceName || "Reddit",
+                color: "red",
+                icon: <MessageSquare className="w-3 h-3" />
+            };
+        }
+        // Fallback for manual or unknown
+        return {
+            label: deal.sourceName || (deal.source ? deal.source.charAt(0).toUpperCase() + deal.source.slice(1) : "Manual"),
+            color: "cyan",
+            icon: <Zap className="w-3 h-3" />
+        };
+    }, [deal.source, deal.sourceName]);
+
     const copyOutreach = useCallback(async (e: React.MouseEvent) => {
         e.stopPropagation();
         setIsGenerating(true);
@@ -161,25 +199,14 @@ export default function DealCard({
                 </div>
             )}
 
+
             {/* Header Section */}
             <div className="p-5 pb-3">
                 <div className="flex justify-between items-start gap-4 mb-2">
                     <div className="flex gap-2 items-center">
-                        <span className={`px-2 py-0.5 rounded text-[10px] uppercase tracking-wider font-semibold border transition-colors flex items-center gap-1 ${deal.source === 'ProductHunt'
-                            ? 'bg-orange-500/10 text-orange-500 border-orange-500/20'
-                            : (deal.source === 'indiehustle' || deal.source === 'IndieHustle')
-                                ? 'bg-purple-500/10 text-purple-500 border-purple-500/20'
-                                : (deal.source === 'indiehackers' || deal.source === 'IndieHackers')
-                                    ? 'bg-blue-500/10 text-blue-500 border-blue-500/20'
-                                    : 'bg-red-500/10 text-red-500 border-red-500/20'
-                            }`}>
-                            {deal.source === 'ProductHunt' ? <Target className="w-3 h-3" /> :
-                                (deal.source === 'indiehustle' || deal.source === 'IndieHustle') ? <Zap className="w-3 h-3" /> :
-                                    (deal.source === 'indiehackers' || deal.source === 'IndieHackers') ? <MessageSquare className="w-3 h-3" /> :
-                                        <MessageSquare className="w-3 h-3" />}
-                            {deal.source === 'ProductHunt' ? 'ProductHunt' :
-                                (deal.source === 'indiehustle' || deal.source === 'IndieHustle') ? 'IndieHustle' :
-                                    (deal.source === 'indiehackers' || deal.source === 'IndieHackers') ? 'Indie Hackers' : 'Reddit'}
+                        <span className={`px-2 py-0.5 rounded text-[10px] uppercase tracking-wider font-semibold border transition-colors flex items-center gap-1 bg-${sourceConfig.color}-500/10 text-${sourceConfig.color}-500 border-${sourceConfig.color}-500/20`}>
+                            {sourceConfig.icon}
+                            {sourceConfig.label}
                         </span>
 
                         {deal.industry && (
@@ -278,6 +305,8 @@ export default function DealCard({
                 </div>
             </div>
 
+
+
             {/* Footer / Actions */}
             <div className="p-3 pl-10 pr-5 border-t border-[var(--border)] flex items-center justify-between bg-[var(--background)]/30">
                 <div className="flex items-center gap-3 text-[10px] text-[var(--text-dim)]">
@@ -291,6 +320,14 @@ export default function DealCard({
                             <MessageSquare className="w-3 h-3" /> {deal.redditComments}
                         </span>
                     )}
+                    {deal.lastMovedBy && (
+                        <span 
+                            className="flex items-center gap-1 bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 px-1.5 py-0.5 rounded shadow-sm" 
+                            title={`Moved here by ${deal.lastMovedBy.username}`}
+                        >
+                            <Users className="w-2.5 h-2.5" /> {deal.lastMovedBy.username}
+                        </span>
+                    )}
                 </div>
 
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
@@ -302,14 +339,14 @@ export default function DealCard({
                     >
                         <Copy className="w-3.5 h-3.5" />
                     </button>
-                    {(deal.redditUrl) && (
+                    {deal.redditUrl && (
                         <a
                             href={deal.redditUrl}
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={(e) => e.stopPropagation()}
                             className="p-1.5 rounded hover:bg-[var(--background)] text-[var(--text-muted)] hover:text-white transition-colors"
-                            title="Open Reddit"
+                            title={`Open ${sourceConfig.label}`}
                         >
                             <ExternalLink className="w-3.5 h-3.5" />
                         </a>

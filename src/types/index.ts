@@ -45,6 +45,12 @@ export interface Deal {
         username: string;
         email?: string | null;
     } | null;
+    lastMovedById?: string | null;
+    lastMovedBy?: {
+        id: string;
+        username: string;
+        email?: string | null;
+    } | null;
     notes?: Note[];
     crmTasks?: CrmTask[];
 }

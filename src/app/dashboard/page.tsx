@@ -29,21 +29,24 @@ interface DashboardStats {
   totalDeals: number;
   newLeads: number;
   qualified: number;
-  contacted: number;
+  engaged: number;
+  disqualified: number;
   avgViability: number;
 }
 
 function computeDashboardStats(deals: Deal[]): DashboardStats {
   let newLeads = 0;
   let qualified = 0;
-  let contacted = 0;
+  let engaged = 0;
+  let disqualified = 0;
   let scoreTotal = 0;
   let scoreCount = 0;
 
   for (const deal of deals) {
     if (deal.status === "new_leads") newLeads += 1;
     else if (deal.status === "qualified") qualified += 1;
-    else if (deal.status === "contacted") contacted += 1;
+    else if (deal.status === "engaged") engaged += 1;
+    else if (deal.status === "disqualified") disqualified += 1;
 
     if (typeof deal.viabilityScore === "number") {
       scoreTotal += deal.viabilityScore;
@@ -55,7 +58,8 @@ function computeDashboardStats(deals: Deal[]): DashboardStats {
     totalDeals: deals.length,
     newLeads,
     qualified,
-    contacted,
+    engaged,
+    disqualified,
     avgViability: scoreCount > 0 ? Math.round(scoreTotal / scoreCount) : 0,
   };
 }
@@ -65,7 +69,8 @@ export default function Dashboard() {
     totalDeals: 0,
     newLeads: 0,
     qualified: 0,
-    contacted: 0,
+    engaged: 0,
+    disqualified: 0,
     avgViability: 0,
   });
   const [recentDeals, setRecentDeals] = useState<Deal[]>([]);
@@ -174,7 +179,7 @@ export default function Dashboard() {
       if (res.ok) {
         setRecentDeals([]);
         setAllDeals([]);
-        setStats({ totalDeals: 0, newLeads: 0, qualified: 0, contacted: 0, avgViability: 0 });
+        setStats({ totalDeals: 0, newLeads: 0, qualified: 0, engaged: 0, disqualified: 0, avgViability: 0 });
         setUndoStack([]);
         setRedoStack([]);
         toast.success("All deals cleared");

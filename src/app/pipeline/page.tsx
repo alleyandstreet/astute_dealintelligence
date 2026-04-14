@@ -11,6 +11,7 @@ import {
     useSensors,
     DragStartEvent,
     DragEndEvent,
+    useDroppable,
 } from "@dnd-kit/core";
 import {
     SortableContext,
@@ -28,7 +29,8 @@ import { Deal } from "@/types";
 const COLUMNS = [
     { id: "new_leads", title: "New Leads", color: "cyan" },
     { id: "qualified", title: "Qualified", color: "blue" },
-    { id: "contacted", title: "Contacted", color: "amber" },
+    { id: "disqualified", title: "Disqualified", color: "red" },
+    { id: "engaged", title: "Engaged", color: "amber" },
     { id: "in_discussion", title: "In Discussion", color: "purple" },
     { id: "due_diligence", title: "Due Diligence", color: "green" },
 ];
@@ -122,9 +124,13 @@ function SortableDealCard({ deal, onCardClick }: { deal: Deal; onCardClick: (dea
 }
 
 function Column({ column, deals, onCardClick }: { column: typeof COLUMNS[0]; deals: Deal[]; onCardClick: (deal: Deal) => void }) {
+    const { setNodeRef } = useDroppable({
+        id: column.id,
+    });
+
     return (
-        <div className="flex-1 min-w-[280px] bg-[var(--background)] border border-[var(--border)] rounded-xl overflow-hidden">
-            <div className={`px-4 py-3 border-b border-[var(--border)] bg-${column.color}-500/5`}>
+        <div ref={setNodeRef} className="flex-1 flex flex-col bg-[var(--background)] border border-[var(--border)] rounded-xl overflow-hidden h-full">
+            <div className={`px-4 py-3 border-b border-[var(--border)] bg-${column.color}-500/5 flex-shrink-0`}>
                 <div className="flex items-center justify-between">
                     <h3 className="font-semibold text-white">{column.title}</h3>
                     <span className={`px-2 py-0.5 rounded-full text-xs bg-${column.color}-500/20 text-${column.color}-400`}>
@@ -132,14 +138,14 @@ function Column({ column, deals, onCardClick }: { column: typeof COLUMNS[0]; dea
                     </span>
                 </div>
             </div>
-            <div className="p-3 space-y-3 min-h-[500px] max-h-[calc(100vh-250px)] overflow-y-auto">
+            <div className="p-3 flex-1 overflow-y-auto space-y-3">
                 <SortableContext items={deals.map((d) => d.id)} strategy={verticalListSortingStrategy}>
                     {deals.map((deal) => (
                         <SortableDealCard key={deal.id} deal={deal} onCardClick={onCardClick} />
                     ))}
                 </SortableContext>
                 {deals.length === 0 && (
-                    <div className="text-center py-8 text-[var(--text-dim)] text-sm">
+                    <div className="text-center py-8 text-[var(--text-dim)] text-sm col-span-full">
                         No deals
                     </div>
                 )}
@@ -190,6 +196,13 @@ export default function PipelinePage() {
         setDeals((prev) => prev.map((d) => (d.id === id ? { ...d, status } : d)));
         if (selectedDeal?.id === id) {
             setSelectedDeal({ ...selectedDeal, status });
+        }
+    };
+
+    const handleDealUpdated = (updatedDeal: Deal) => {
+        setDeals((prev) => prev.map((d) => (d.id === updatedDeal.id ? updatedDeal : d)));
+        if (selectedDeal?.id === updatedDeal.id) {
+            setSelectedDeal(updatedDeal);
         }
     };
 
@@ -309,12 +322,20 @@ export default function PipelinePage() {
 
         // Update on server
         try {
-            await fetch("/api/deals", {
+            const response = await fetch("/api/deals", {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ id: dealId, status: newStatus }),
             });
-            toast.success("Deal moved!");
+            
+            if (response.ok) {
+                const updatedDeal = await response.json();
+                // Override the optimistic update with the real server object (contains lastMovedBy)
+                setDeals((prev) => prev.map((d) => (d.id === dealId ? updatedDeal : d)));
+                toast.success("Deal moved!");
+            } else {
+                throw new Error("Failed to update");
+            }
         } catch (error) {
             toast.error("Failed to update deal");
             fetchDeals(); // Refresh on error
@@ -384,15 +405,48 @@ export default function PipelinePage() {
                 onDragStart={handleDragStart}
                 onDragEnd={handleDragEnd}
             >
-                <div className="flex gap-4 overflow-x-auto pb-4">
-                    {COLUMNS.map((column) => (
+                <div className="flex gap-4 overflow-x-auto pb-4 h-[calc(100vh-200px)] min-h-[600px] items-stretch">
+                    {/* Column 1: New Leads */}
+                    <div className="w-[320px] flex-shrink-0 h-full">
                         <Column
-                            key={column.id}
-                            column={column}
-                            deals={deals.filter((d) => d.status === column.id)}
+                            column={COLUMNS.find(c => c.id === "new_leads")!}
+                            deals={deals.filter(d => d.status === "new_leads")}
                             onCardClick={openDeal}
                         />
-                    ))}
+                    </div>
+
+                    {/* Column 2: Qualified / Disqualified (Split) */}
+                    <div className="w-[320px] flex-shrink-0 h-full flex flex-col gap-4">
+                        <div className="flex-1 overflow-hidden min-h-0">
+                            <Column
+                                column={COLUMNS.find(c => c.id === "qualified")!}
+                                deals={deals.filter(d => d.status === "qualified")}
+                                onCardClick={openDeal}
+                            />
+                        </div>
+                        <div className="flex-1 overflow-hidden min-h-0">
+                            <Column
+                                column={COLUMNS.find(c => c.id === "disqualified")!}
+                                deals={deals.filter(d => d.status === "disqualified")}
+                                onCardClick={openDeal}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Columns 3, 4, 5 */}
+                    {["engaged", "in_discussion", "due_diligence"].map((colId) => {
+                        const col = COLUMNS.find((c) => c.id === colId);
+                        if (!col) return null;
+                        return (
+                            <div key={colId} className="w-[320px] flex-shrink-0 h-full">
+                                <Column
+                                    column={col}
+                                    deals={deals.filter((d) => d.status === colId)}
+                                    onCardClick={openDeal}
+                                />
+                            </div>
+                        );
+                    })}
                 </div>
 
                 <DragOverlay>
@@ -407,12 +461,7 @@ export default function PipelinePage() {
                 onClose={() => setIsModalOpen(false)}
                 onStatusChange={handleStatusChange}
                 onDelete={handleDelete}
-                onDealUpdated={(updatedDeal) => {
-                    setDeals(prev => prev.map(d => d.id === updatedDeal.id ? updatedDeal : d));
-                    if (selectedDeal?.id === updatedDeal.id) {
-                        setSelectedDeal(updatedDeal);
-                    }
-                }}
+                onDealUpdated={handleDealUpdated}
             />
         </div>
     );

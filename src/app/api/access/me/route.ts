@@ -2,6 +2,8 @@ import { requireAuth } from "@/lib/auth";
 import { getUserFeatureAccessMap, getLatestOnboardingAssignment } from "@/lib/team-controls";
 import { NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
     const { session, response } = await requireAuth();
     if (response) return response;
