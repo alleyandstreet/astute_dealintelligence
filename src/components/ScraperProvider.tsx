@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import { toast } from "sonner";
 import { ScanJob } from "@/lib/unified-search/job-manager";
 
@@ -18,52 +18,56 @@ export function ScraperProvider({ children }: { children: React.ReactNode }) {
     const [jobs, setJobs] = useState<ScanJob[]>([]);
     const [activeJobs, setActiveJobs] = useState<ScanJob[]>([]);
 
+    // Track which jobs we've already shown notifications for (prevents duplicates)
+    const notifiedJobs = useRef<Set<string>>(new Set());
+
     const refreshJobs = useCallback(async () => {
         try {
             const res = await fetch("/api/scan/jobs");
-            if (!res.ok) throw new Error("Failed to fetch jobs");
+            if (!res.ok) return;
             const data: ScanJob[] = await res.json();
-            
-            // Check for newly completed jobs to show notifications
-            data.forEach(newJob => {
-                const oldJob = jobs.find(j => j.id === newJob.id);
-                if (newJob.status === "completed" && oldJob?.status !== "completed") {
-                    const deals = newJob.metrics?.dealsCreated || 0;
+
+            // Show ONE notification per job when it finishes
+            for (const job of data) {
+                const jobNotifKey = `${job.id}:${job.status}`;
+                if (notifiedJobs.current.has(jobNotifKey)) continue;
+
+                if (job.status === "completed") {
+                    notifiedJobs.current.add(jobNotifKey);
+                    const deals = job.metrics?.dealsCreated || 0;
                     if (deals > 0) {
-                        toast.success(`Scan Complete: ${newJob.platform}`, {
-                            description: `Found ${deals} new qualified deals!`,
+                        toast.success(`Scan Complete: ${job.platform}`, {
+                            description: `Found ${deals} new deals!`,
                             action: {
                                 label: "View Deals",
                                 onClick: () => window.location.href = "/deals"
                             }
                         });
-                    } else {
-                        toast.info(`Scan Complete: ${newJob.platform}`, {
-                            description: "No new deals found this time."
-                        });
                     }
-                } else if (newJob.status === "failed" && oldJob?.status !== "failed") {
-                    toast.error(`Scan Failed: ${newJob.platform}`, {
-                        description: newJob.error || "An unknown error occurred"
+                    // Don't toast "no deals found" — it's noise
+                } else if (job.status === "failed") {
+                    notifiedJobs.current.add(jobNotifKey);
+                    toast.error(`Scan Failed: ${job.platform}`, {
+                        description: (job.error || "Unknown error").slice(0, 100),
                     });
                 }
-            });
+            }
 
             setJobs(data);
             setActiveJobs(data.filter(j => j.status === "running" || j.status === "pending"));
-        } catch (error) {
-            console.error("ScraperProvider refresh error:", error);
+        } catch {
+            // Silently ignore polling errors
         }
-    }, [jobs]);
+    }, []); // No dependencies — stable function
 
-    // Initial fetch and polling
+    // Poll every 4 seconds
     useEffect(() => {
         refreshJobs();
-        const interval = setInterval(refreshJobs, 3000); // Poll every 3 seconds
+        const interval = setInterval(refreshJobs, 4000);
         return () => clearInterval(interval);
     }, [refreshJobs]);
 
-    const startScan = async (platform: string, config: any) => {
+    const startScan = useCallback(async (platform: string, config: any) => {
         try {
             const res = await fetch("/api/scan", {
                 method: "POST",
@@ -73,30 +77,27 @@ export function ScraperProvider({ children }: { children: React.ReactNode }) {
             
             if (!res.ok) {
                 const text = await res.text();
-                console.error(`API error from /api/scan (status: ${res.status}):`, text);
-                toast.error(`Scan failed (${res.status})`, { description: text.slice(0, 50) });
+                console.error(`Scan API error (${res.status}):`, text);
+                toast.error(`Scan failed (${res.status})`);
                 return null;
             }
 
             const data = await res.json();
             if (data.jobId) {
-                toast.info(`Started ${platform} scan`, {
-                    description: "Running in background..."
-                });
+                toast.info(`Started ${platform} scan`);
                 await refreshJobs();
                 return data.jobId;
             } else {
-                toast.error("Failed to start scan", { description: data.error });
+                toast.error("Failed to start scan");
                 return null;
             }
-        } catch (error) {
-            console.error("Network error starting scan:", error);
+        } catch {
             toast.error("Network error starting scan");
             return null;
         }
-    };
+    }, [refreshJobs]);
 
-    const getJob = (jobId: string) => jobs.find(j => j.id === jobId);
+    const getJob = useCallback((jobId: string) => jobs.find(j => j.id === jobId), [jobs]);
 
     return (
         <ScraperContext.Provider value={{ jobs, activeJobs, startScan, getJob, refreshJobs }}>
