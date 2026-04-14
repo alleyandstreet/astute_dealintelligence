@@ -3,13 +3,28 @@ import type { RawScrapedItem, UnifiedPlatformContext } from "@/lib/unified-searc
 let cachedToken: string | null = null;
 let tokenExpiresAt: number = 0;
 
-// Cursor cache: stores the last endCursor per topic so multi-pass scans
-// fetch the next page instead of re-fetching the same top posts.
-const cursorCache = new Map<string, string>();
+// Single shared cursor — the PH `posts` endpoint is global (not topic-scoped),
+// so all seeds share one pagination position.
+let paginationCursor: string | null = null;
 
-/** Clear all cached pagination cursors (e.g. on a fresh scan). */
+// Per-pass batch cache: once one seed triggers an API call, all other seeds
+// in the same pass reuse the cached raw items (avoiding duplicate API calls).
+let batchCacheItems: any[] | null = null;
+let batchCacheTimestamp = 0;
+const BATCH_CACHE_TTL_MS = 10_000; // 10s — covers all seeds within one pass
+
+/** Reset pagination state for a fresh scan. */
 export function resetPHCursors() {
-    cursorCache.clear();
+    paginationCursor = null;
+    batchCacheItems = null;
+    batchCacheTimestamp = 0;
+}
+
+/** Expire the batch cache so the next pass fetches the next page.
+ *  Keeps the cursor so pagination advances forward. */
+export function advancePHPage() {
+    batchCacheItems = null;
+    batchCacheTimestamp = 0;
 }
 
 async function getAccessToken(): Promise<string> {
@@ -41,21 +56,21 @@ async function getAccessToken(): Promise<string> {
 
     const data = await authRes.json();
     cachedToken = data.access_token;
-    // Expire 5 minutes early to be safe
     tokenExpiresAt = Date.now() + (data.expires_in * 1000) - 300000;
     
     return cachedToken as string;
 }
 
-export async function fetchProductHuntSeed(context: UnifiedPlatformContext): Promise<RawScrapedItem[]> {
-    const topic = context.seed.trim().toLowerCase();
-    const maxItems = Math.max(1, context.input.maxItemsPerPlatform ?? 50);
-
-    const accessToken = await getAccessToken();
-
-    // Use cursor from previous pass (if any) to paginate forward
-    const cursorKey = `ph:${topic}`;
-    const afterCursor = cursorCache.get(cursorKey) || null;
+/**
+ * Fetch a batch of posts from PH.  Uses a short-lived cache so that within
+ * one pass (where multiple seeds run), we only hit the API once.
+ * Between passes, the cache expires and pagination advances via the cursor.
+ */
+async function fetchBatch(accessToken: string, limit: number): Promise<any[]> {
+    // Return cached batch if still fresh (same pass)
+    if (batchCacheItems && Date.now() - batchCacheTimestamp < BATCH_CACHE_TTL_MS) {
+        return batchCacheItems;
+    }
 
     const query = `
         query ($first: Int!, $after: String) {
@@ -94,9 +109,6 @@ export async function fetchProductHuntSeed(context: UnifiedPlatformContext): Pro
         }
     `;
 
-    // PH API has a ~500k complexity budget; 20 posts with nested fields stays well under.
-    const fetchLimit = Math.min(maxItems, 20);
-
     const res = await fetch('https://api.producthunt.com/v2/api/graphql', {
         method: 'POST',
         headers: {
@@ -106,7 +118,7 @@ export async function fetchProductHuntSeed(context: UnifiedPlatformContext): Pro
         },
         body: JSON.stringify({
             query,
-            variables: { first: fetchLimit, after: afterCursor }
+            variables: { first: limit, after: paginationCursor }
         })
     });
 
@@ -119,17 +131,35 @@ export async function fetchProductHuntSeed(context: UnifiedPlatformContext): Pro
         throw new Error(`Product Hunt GraphQL error: ${errors[0].message}`);
     }
 
-    // Save the cursor for the next pass
+    // Advance shared cursor for next pass
     const pageInfo = data?.posts?.pageInfo;
     if (pageInfo?.endCursor) {
-        cursorCache.set(cursorKey, pageInfo.endCursor);
+        paginationCursor = pageInfo.endCursor;
     }
 
-    let items = (data?.posts?.edges || []).map((edge: any) => edge.node);
+    const items = (data?.posts?.edges || []).map((edge: any) => edge.node);
 
-    // Filter locally by topic if a specific topic was requested
+    // Cache for the rest of this pass
+    batchCacheItems = items;
+    batchCacheTimestamp = Date.now();
+
+    return items;
+}
+
+export async function fetchProductHuntSeed(context: UnifiedPlatformContext): Promise<RawScrapedItem[]> {
+    const topic = context.seed.trim().toLowerCase();
+    const maxItems = Math.max(1, context.input.maxItemsPerPlatform ?? 50);
+
+    const accessToken = await getAccessToken();
+    const fetchLimit = Math.min(maxItems, 20);
+
+    // All seeds share the same batch — only one API call per pass
+    const allItems = await fetchBatch(accessToken, fetchLimit);
+
+    // Filter locally by topic
+    let items = allItems;
     if (topic !== 'all' && topic !== 'home') {
-        items = items.filter((item: any) => {
+        items = allItems.filter((item: any) => {
             const itemTopics = (item.topics?.edges || []).map((e: any) => e.node.name.toLowerCase());
             return itemTopics.some((t: string) => t.includes(topic) || topic.includes(t));
         });
@@ -150,7 +180,6 @@ export async function fetchProductHuntSeed(context: UnifiedPlatformContext): Pro
 
         const bodyContent = descParts.join("\n\n");
 
-        // PH API redacts PII for client_credentials apps — filter out "[REDACTED]"
         const makers = item.makers || [];
         const realMakerNames = makers
             .map((m: any) => m.name)

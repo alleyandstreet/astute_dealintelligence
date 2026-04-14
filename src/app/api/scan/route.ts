@@ -3,7 +3,7 @@ import { requireAuth } from "@/lib/auth";
 import { logActivity } from "@/lib/activity-logger";
 import { runUnifiedSearch } from "@/lib/unified-search/orchestrator";
 import { jobManager } from "@/lib/unified-search/job-manager";
-import { resetPHCursors } from "@/lib/unified-search/sources/producthunt";
+import { resetPHCursors, advancePHPage } from "@/lib/unified-search/sources/producthunt";
 import type { UnifiedPlatformId, UnifiedStreamEvent } from "@/lib/unified-search/types";
 
 const PLATFORM_MAP: Record<string, UnifiedPlatformId> = {
@@ -89,6 +89,8 @@ export async function POST(request: NextRequest) {
                         const isFirstPass = pass === 0;
 
                         if (!isFirstPass) {
+                            // Expire batch cache so the next API call uses the advanced cursor
+                            advancePHPage();
                             send({ type: "log", message: `\n⏳ Pass ${pass + 1}/${repeatCount} — waiting 3s before next batch...` });
                             await new Promise(resolve => setTimeout(resolve, 3000));
                         }
